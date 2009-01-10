@@ -10,7 +10,12 @@
 
 #include <x86/video_defines.h>
 #include <x86/seg.h>
+#include <pebbles_elfnote.h>
+#include <xen/elfnote.h>
 
+#define PAGE_SIZE_asm 4096
+#define VMM_KERNEL_BASE 0xc0000000
+	
 /** @brief Entry point from the bootloader */
 .global _start
 /** @brief Start of the kernel image */
@@ -21,7 +26,8 @@
 .global init_idt
 /** @brief Start of the init TSS */
 .global init_tss
-
+.global hypercall_page
+	
 .text
 
 __kimg_start:
@@ -165,6 +171,22 @@ pmsg:
 pbytes:
     .asciz "K\re\rr\rn\re\rl\r \rc\ra\rn\rn\ro\rt\r \rr\re\rt\ru\rr\rn\r(\r)\r!\r \r"
 
+.pushsection .bss.page_aligned
+	.align PAGE_SIZE_asm
+hypercall_page:	
+	.skip 0x1000
+.popsection
+
+	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_OS,       .asciz "pebbles_xen")
+	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_VERSION,  .asciz "1.0")
+	ELFNOTE(Xen, XEN_ELFNOTE_XEN_VERSION,    .asciz "xen-3.0")
+	ELFNOTE(Xen, XEN_ELFNOTE_VIRT_BASE,      .long  VMM_KERNEL_BASE)
+	ELFNOTE(Xen, XEN_ELFNOTE_ENTRY,          .long  _start)
+	ELFNOTE(Xen, XEN_ELFNOTE_HYPERCALL_PAGE, .long  hypercall_page)
+	ELFNOTE(Xen, XEN_ELFNOTE_FEATURES,       .asciz "!writable_page_tables|pae_pgdir_above_4gb")
+	ELFNOTE(Xen, XEN_ELFNOTE_PAE_MODE,       .asciz "no")
+	ELFNOTE(Xen, XEN_ELFNOTE_LOADER,         .asciz "generic")
+	
 /* Initial stack */
 .space 4096
 istack:

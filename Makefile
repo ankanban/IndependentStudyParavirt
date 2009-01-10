@@ -4,7 +4,7 @@
 #################### RULE HEADER ####################
 
 .PHONY: update query_update print html_doc
-all: query_update bootfd.img
+all: bootfd.img # query_update
 
 ############## VARIABLE DEFINITIONS #################
 
