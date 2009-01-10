@@ -1,0 +1,29 @@
+To do:
+
+1. new_pages
+
+- Check allocation range, allocate only part of VMA that does not
+have existing VMA structure.
+
+2. remove pages
+
+-instead of freeing entire VMA, free part that starts from the given address
+
+3. cas2i_runflag
+- implement
+
+4. exec: argc/argv
+- implement argc/argv push onto user stack
+
+5. thread_fork - implement?
+
+6. Implement slab cache allocator
+
+7. Implement page free path for VMAs
+
+8. Test resource deletion
+
+9. reorg for drivers -- add some structure/devices etc.
+
+10. Documentation.
+

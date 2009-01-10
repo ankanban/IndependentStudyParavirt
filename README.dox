@@ -1,0 +1,186 @@
+/**
+
+@mainpage 15-410 Project 3
+
+@author Anshuman Kanetkar (apk)
+
+
+*/
+
+Startup
+========
+
+The main entry point for the kernel is located in kern/kernel.c
+This sets up the initial kernel data structures, i.e. the
+Interrupt Vector Table, system calls, and memory allocation
+data structures. It also sets up the initial page table for the
+kernel, which is discarded once the kernel makes the first task
+switch
+
+
+The kernel creates an idle process (but does not switch until the
+scheduler comes into play later), and the first process -- init.
+Init is created with all the relevant process state -- its own 
+TCB (the task_t data structure), and kernel/user stacks.
+
+
+Process Memory Map
+==================
+
+The process memory map is constructed as follows:
+
+
++-------------+ 0x000000000
+|             |
+| Kernel Code |  (Marked Read-write, with SU privileges)
+| & Data seg  |
+|             |
++-------------+ 0x01000000
+|             |
+| User Txt seg| Mapped according to offsets in ELF header
++-------------+
+|             |
+| User rodata | Marked read-only
++-------------+
+|             |
+| User data   | Marked read/write 
++-------------+
+| User BSS    | Zero-filled at start
++-------------+
+|             |
+    ...
+|             |
++-------------+
+| User-alloc  | Memory allocated using new_pages
++-------------+
+|             |
+     ...      
+|             |
++-------------+
+|  User stack | (Max size 4MB, allocated on-demand)
++-------------+
+|  Physical   | 
+|  Memory     | Mapped Read/Write with SU privileges
+|(V2P mapping)|
++=============+
+|   Phys. Mem |
+|highem region|
+| used for    |
+|Kernel Stacks|
++-------------+ End of physical memory map
+|             |
+    ...
+Unmapped memory
+|             |
+    ...
+
+Memory Map Data structures
+===========================
+
+Files: vm_area.c, vmm.c
+
+Each memory region with the process' address space is modeled by
+a vm_area_t data structure. This structure stores extent information
+for the region, and also has default methods for loading empty pages,
+and for handling writes to regions marked read-only.
+
+Memory regions can be direct-mapped/kernel stack, copy, allocate-on-access,
+or zero-filled. 
+
+Kernel stack segments are direct-mapped and mapped into the high-mem
+region of the virtual memory map for physical memory.
+
+Copy VMAs are used when forking new processes --
+the memory regions for the new process are allocated, and the mapped
+page frames from the source VMA are copied into the new region.
+(I did initially implement Copy-On-write like mechanism, but
+abandoned it as cleanup is much more complex for COW).
+
+For all the VMA types (except direct-mapped), pages are loaded on-demand
+on first access  by the page fault handler. For Copy VMAs, the mapped-in
+region of the source VMA is copied, and the rest is loaded on-demand (the
+VMA acquires the 'type' of the source VMA).  
+
+Task & Thread Management
+==========================
+
+Files: kern/task.c, kern/thread.c
+
+A 'process' is modeled by a task_t data structure, and a thread by a
+thread_t type. Currently, the kernel only supports one thread per process.
+The thread_t structure contains all the fields that the process' control block
+should contain, while task_t contains the memory map information for
+the process. 
+
+
+Context Switches
+===================
+
+Files: context_switch.S
+
+During a context switch, the calling thread's register state is saved on
+the kernel stack, and the stack & page table is copied from the destination
+thread's saved state.
+
+
+Mode Switches
+====================
+
+The kernel switches to user mode wither through the normal return path
+for system calls (as defined by the system call wrappers in 
+kern/inc/kernel_asm.h), or when a task is being scheduled for
+the first time, through the routines exit_kernel (for forked tasks)
+or through exit_exec (for execed tasks). The latter exit point
+is used to reuse the thread's kernel stack while reloading all its
+other virtual memory regions.
+
+Scheduler
+============
+
+Files: sched.c
+
+The scheduler is a simple round-robin scheduler, that selects the first
+available thread from the list of runnable threads. It also maintains
+a list of threads waiting on the timer.
+
+The scheduler is invoked either from the timer interrupt 'bottom half' 
+or explicitly during thread termination or sleep events.
+
+When invoked from the timer bottom half, the scheduler first checks for
+processes that need to be removed from the timer wait list, before
+modifying the run queue.
+
+
+Page fault handling
+====================
+
+The page fault handler goes through the list of vm_area_t's for the
+faulting task to find the closes match. If a match is not found, or if
+the type of access is invalid, the handler terminates the process, 
+printing a "Segmentation Fault" message to the console.
+
+If a match is found, the handler calls the vm_area_t's 'nopage' method
+to load the page into memory if it does not exist, and the 'writepage'
+method to make is writable (if the page was marked read-only).
+If multiple VMAs map to the same page (e.g. with the data and BSS sections
+of a small executable), the handler iterates through them and calls the
+handler methods for each VMA in order of increasing address.
+
+Synchronization
+==================
+
+The kernel is non-reentrant for all operations on kernel data structures
+that are not directly handled by hardware interrupts (timer/keyboard).
+A single kernel lock is used to ensure there is only one thread executing in
+kernel mode at any given time.
+The timer interrupt has two portions -- a top half which updates the timer
+and can be scheduled at any time, and a bottom half which invokes the scheduler
+and only executes when it is invoked from user-mode.
+
+Bugs
+======
+
+* fork_bomb fails after a fair bit of iterations on a memory allocation error.
+There may be an invalid 'free' that I have not traced down.
+* cho, when run multiple times from the shell, sometimes causes the kernel to hang.
+
