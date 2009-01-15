@@ -52,8 +52,6 @@
 
 #ifdef __ia64__
 #define HVM_PARAM_NVRAM_FD     7
-#define HVM_PARAM_VHPT_SIZE    8
-#define HVM_PARAM_BUFPIOREQ_PFN	9
 #endif
 
 /*
@@ -81,18 +79,6 @@
 #define HVMPTM_no_missed_ticks_pending   2
 #define HVMPTM_one_missed_tick_pending   3
 
-/* Boolean: Enable virtual HPET (high-precision event timer)? (x86-only) */
-#define HVM_PARAM_HPET_ENABLED 11
-
-/* Identity-map page directory used by Intel EPT when CR0.PG=0. */
-#define HVM_PARAM_IDENT_PT     12
-
-/* Device Model domain, defaults to 0. */
-#define HVM_PARAM_DM_DOMAIN    13
-
-/* ACPI S state: currently support S0 and S3 on x86. */
-#define HVM_PARAM_ACPI_S_STATE 14
-
-#define HVM_NR_PARAMS          15
+#define HVM_NR_PARAMS          11
 
 #endif /* __XEN_PUBLIC_HVM_PARAMS_H__ */
