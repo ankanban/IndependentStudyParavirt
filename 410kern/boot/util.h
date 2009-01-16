@@ -4,7 +4,10 @@
 #include <boot/multiboot.h>
 #include <lmm/lmm.h>
 
-void mb_util_cmdline(mbinfo_t *, int *, char ***, char ***);
-void mb_util_lmm(mbinfo_t *, lmm_t *);
+#include <stdint.h>
+#include <xen/xen.h>
+
+void mb_util_cmdline(start_info_t *, int *, char ***, char ***);
+void mb_util_lmm(start_info_t *, void *, lmm_t *);
 
 #endif

@@ -14,7 +14,7 @@
 #include <xen/elfnote.h>
 
 #define PAGE_SIZE_asm 4096
-#define VMM_KERNEL_BASE 0xc0000000
+#define __PAGE_OFFSET 0x00000000
 	
 /** @brief Entry point from the bootloader */
 .global _start
@@ -84,31 +84,27 @@ df_handler: /* 0x100998 */
 df_handler_loop:
     jmp df_handler_loop
 
+.global loop_forever
+.global resume_kernel
+
 _start:
-    cli
+
+loop_forever:
+    movl $0, %ecx
+    cmpl $0, %ecx
+    jz loop_forever
+
+resume_kernel:	
+    cld /* Clear direction flag */
+    movl %esp, %ebx /* bootstrap stack address */
     leal istack, %esp     /* Load initial stack pointer */
-
-    movl $init_tss, %eax
-    subl $init_gdt, %eax
-    subl $1, %eax
-    pushl %eax            /* gdt limit == sizeof(gdt)-1 */
-    pushl $init_gdt
-    call lgdt
-    addl $8, %esp
-
-    movl $init_gdt, %eax
-    subl $init_idt, %eax
-    subl $1, %eax
-    pushl %eax            /* idt limit == sizeof(idt)-1 */
-    pushl $init_idt
-    call lidt
-    addl $8, %esp
-
-    movl $SEGSEL_TSS, %eax
-    ltr %ax
-
+/* Load TSS,GDT,IDT, ltr */
+	
+/* Call the C entry point */
+    pushl %ebx            /* Pass in top of bootstrap stack, given to us
+	                     by Xen */
     pushl %esp            /* Pass in the top of the initial stack */
-    pushl %ebx            /* Pass in the multiboot structure */
+    pushl %esi            /* Pass in the start_info_t structure provided by Xen */
     call mb_entry         /* Call the C entry point */
 
     pushl $pbytes
@@ -180,10 +176,10 @@ hypercall_page:
 	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_OS,       .asciz "pebbles_xen")
 	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_VERSION,  .asciz "1.0")
 	ELFNOTE(Xen, XEN_ELFNOTE_XEN_VERSION,    .asciz "xen-3.0")
-	ELFNOTE(Xen, XEN_ELFNOTE_VIRT_BASE,      .long  VMM_KERNEL_BASE)
+	ELFNOTE(Xen, XEN_ELFNOTE_VIRT_BASE,      .long  __PAGE_OFFSET)
 	ELFNOTE(Xen, XEN_ELFNOTE_ENTRY,          .long  _start)
 	ELFNOTE(Xen, XEN_ELFNOTE_HYPERCALL_PAGE, .long  hypercall_page)
-	ELFNOTE(Xen, XEN_ELFNOTE_FEATURES,       .asciz "!writable_page_tables|pae_pgdir_above_4gb")
+	ELFNOTE(Xen, XEN_ELFNOTE_FEATURES,       .asciz "writable_page_tables")
 	ELFNOTE(Xen, XEN_ELFNOTE_PAE_MODE,       .asciz "no")
 	ELFNOTE(Xen, XEN_ELFNOTE_LOADER,         .asciz "generic")
 	

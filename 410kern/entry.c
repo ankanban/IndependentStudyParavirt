@@ -13,6 +13,8 @@
 #include <assert.h>
 
 #include <kvmphys.h>
+#include <stdint.h>
+#include <xen/xen.h>
 
 /* For FLUX compatibility; see lib/kvmphys.h */
 vm_offset_t phys_mem_va = 0;
@@ -21,16 +23,19 @@ vm_offset_t phys_mem_va = 0;
 static int n_phys_frames = 0;
 
 /** @brief C entry point */
-void mb_entry(mbinfo_t *info, void *istack) {
+void mb_entry(start_info_t *info, void *istack, void *bstack) {
     int argc;
     char **argv;
     char **envp;
 
     /* Want (kilobytes*1024)/PAGE_SIZE, but definitely avoid overflow */
-    n_phys_frames = (info->mem_upper+1024)/(PAGE_SIZE/1024);
+    //n_phys_frames = (info->mem_upper+1024)/(PAGE_SIZE/1024);
+
+    n_phys_frames = info->nr_pages;
+
     assert(n_phys_frames > (USER_MEM_START/PAGE_SIZE));
 
-    mb_util_lmm(info, &malloc_lmm);  // init()s malloc_lmm internally
+    mb_util_lmm(info, bstack, &malloc_lmm);  // init()s malloc_lmm internally
     // lmm_dump(&malloc_lmm);
 
     mb_util_cmdline(info, &argc, &argv, &envp);
@@ -44,5 +49,5 @@ void mb_entry(mbinfo_t *info, void *istack) {
 int
 machine_phys_frames(void)
 {
-    return (n_phys_frames);
+  return (n_phys_frames);
 }

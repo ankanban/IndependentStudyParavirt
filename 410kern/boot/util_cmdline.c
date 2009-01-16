@@ -27,23 +27,25 @@
 #include <string/string.h>
 #include <malloc/malloc_internal.h>
 
+#include <stdint.h>
+#include  <xen/xen.h>
+
     /* Note that this system uses _malloc to grab memory before the whole
      * environment is up and running.
      *
      * Requires that malloc_lmm is initialized somehow (see mb_util_lmm).
      */
 
-static char prog_name[] = "kernel";
-static char *null_args[2] = {prog_name, 0};
+//static char prog_name[] = "kernel";
+//static char *null_args[2] = {prog_name, 0};
 
 static const char delim[] = " \f\n\r\t\v";
 
-void mb_util_cmdline(mbinfo_t *mbi, int *argc, char ***argv, char ***envp)
+void mb_util_cmdline(start_info_t *mbi, int *argc, char ***argv, char ***envp)
 {
 
-	if (mbi->flags & MULTIBOOT_CMDLINE)
-	{
-		char *cl = (char*)phystokv(mbi->cmdline);
+
+		char *cl = (char*)phystokv(mbi->cmd_line);
 		unsigned cllen = strlen(cl);
 		char *targ[1 + cllen], *tvar[cllen];
 		unsigned narg = 0, nvar = 0;
@@ -70,13 +72,6 @@ void mb_util_cmdline(mbinfo_t *mbi, int *argc, char ***argv, char ***envp)
 		*envp = &*argv[narg+1];
 		memcpy(*envp, tvar, sizeof(char*) * nvar);
 		*envp[nvar] = 0;
-	}
-	else
-	{
-		/* No command line.  */
-		*argc = 1;
-		*argv = null_args;
-		*envp = null_args + 1;
-	}
+	
 }
 

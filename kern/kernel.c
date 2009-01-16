@@ -28,6 +28,10 @@
 #include <x86/interrupt_defines.h>  /* interrupt_setup() */
 #include <x86/asm.h>                /* enable_interrupts() */
 
+/*Xen includes*/
+#include <stdint.h>
+#include <xen/xen.h>
+
 #include <interrupt_wrappers.h>
 #include <kernel_timer.h>
 #include <console.h>
@@ -54,6 +58,11 @@ extern lmm_t malloc_lmm;
  */
 extern struct multiboot_info boot_info;
 
+
+shared_info_t *HYPERVISOR_shared_info;
+
+unsigned long hypervisor_virt_start;
+
 /** @brief Kernel entrypoint.
  *  
  *  This is the entrypoint for the kernel.
@@ -61,18 +70,14 @@ extern struct multiboot_info boot_info;
  * @return Does not return
  */
 int 
-kernel_main(mbinfo_t *mbinfo, int argc, char **argv, char **envp)
+kernel_main(start_info_t *mbinfo, int argc, char **argv, char **envp)
 {
     /*
      * Tell the kernel memory allocator which memory it can't use.
      * It already knows not to touch kernel image.
      */
 
-    /* Everything above 16M */
-    lmm_remove_free( &malloc_lmm, (void*)USER_MEM_START, -8 - USER_MEM_START );
-    
-    /* Everything below 1M  */
-    lmm_remove_free( &malloc_lmm, (void*)0, 0x100000 );
+    HYPERVISOR_shared_info = mbinfo;
 
     /*
      * Install the timer handler function.

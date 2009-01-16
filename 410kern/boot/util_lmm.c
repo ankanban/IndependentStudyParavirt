@@ -25,6 +25,10 @@
 #include <kvmphys.h>
 #include <lmm/lmm_types.h>
 
+#include <common_kern.h>
+#include <stdint.h>
+#include <xen/xen.h>
+
 /* The 410 world does not care about memory in this much detail.  If we
  * ever start caring this much, these definitions should move back
  * to their own header file so that other users of LMM can see them
@@ -60,91 +64,78 @@ static struct lmm_region reg1mb, reg16mb, reghigh;
 		else { min = (hole_max); goto retry; }			\
 	}
 
-void mb_util_lmm (mbinfo_t *mbi, lmm_t *lmm)
+/* Extract from xen/xen.h :
+ * Start-of-day memory layout:
+ *  1. The domain is started within contiguous virtual-memory region.
+ *  2. The contiguous region ends on an aligned 4MB boundary.
+ *  3. This the order of bootstrap elements in the initial virtual region:
+ *      a. relocated kernel image
+ *      b. initial ram disk              [mod_start, mod_len]
+ *      c. list of allocated page frames [mfn_list, nr_pages]
+ *      d. start_info_t structure        [register ESI (x86)]
+ *      e. bootstrap page tables         [pt_base, CR3 (x86)]
+ *      f. bootstrap stack               [register ESP (x86)]
+ *  4. Bootstrap elements are packed together, but each is 4kB-aligned.
+ */
+void mb_util_lmm (start_info_t *mbi, void * bstack, lmm_t *lmm)
 {
-	vm_offset_t min;
-	extern char _start[], end[];
+  //vm_offset_t min;
+  //extern char _start[], end[];
 
-	/* Memory regions to skip.  */
-	vm_offset_t cmdline_start_pa = mbi->flags & MULTIBOOT_CMDLINE
-		? mbi->cmdline : 0;
-	vm_offset_t cmdline_end_pa = cmdline_start_pa
-		? cmdline_start_pa+strlen((char*)phystokv(cmdline_start_pa))+1
-		: 0;
+  /*
+	vm_offset_t ramdisk_start_pa = mbi->mod_start;
+	vm_offset_t ramdisk_end_pa = ramdisk_start_pa ? 
+	  (ramdisk_start_pa + mbi->mod_len):
+	  0;
+      
+	vm_offset_t mfnlist_start_pa = mbi->mfn_list;
+	vm_offset_t mfnlist_end_pa = mfnlist_start_pa ? 
+	  (mfnlist_start_pa + mbi->nr_pages * sizeof(uint32_t)):
+	  0;
+
+	vm_offset_t startinfo_start_pa = (vm_offset_t)mbi;
+	vm_offset_t startinfo_end_pa = startinfo_start_pa + sizeof(*mbi);
+
+
+	vm_offset_t bspgtab_start_pa = mbi->pt_base;
+  */
+
+	vm_offset_t bspgtab_end_pa = (vm_offset_t)bstack;
 
 	/* Initialize the base memory allocator
 	   according to the PC's physical memory regions.  */
 	lmm_init(lmm);
 
-    /* Do the x86 init dance to build our initial regions */
-    lmm_add_region(&malloc_lmm, &reg1mb,
-            (void*)phystokv(0x00000000), 0x00100000,
-            LMMF_1MB | LMMF_16MB, LMM_PRI_1MB);
-    lmm_add_region(&malloc_lmm, &reg16mb,
-            (void*)phystokv(0x00100000), 0x00f00000,
-            LMMF_16MB, LMM_PRI_16MB);
-    lmm_add_region(&malloc_lmm, &reghigh,
-            (void*)phystokv(0x01000000), 0xfeffffff,
-            0, LMM_PRI_HIGH);
+	/* Do the x86 init dance to build our initial regions */
+	lmm_add_region(&malloc_lmm, &reg1mb,
+		       (void*)phystokv(0x00000000), 0x00100000,
+		       LMMF_1MB | LMMF_16MB, LMM_PRI_1MB);
 
-	/* Add to the free list all the memory the boot loader told us about,
-	   carefully avoiding the areas occupied by boot information.
-	   as well as our own executable code, data, and bss.
-	   Start at the end of the BIOS data area.  */
-	min = 0x500;
-	do
-	{
-		vm_offset_t max = 0xffffffff;
+	lmm_add_region(&malloc_lmm, &reg16mb,
+		       (void*)phystokv(0x00100000), 0x00f00000,
+		       LMMF_16MB, LMM_PRI_16MB);
 
-		/* Skip the I/O and ROM area.  */
-		skip(mbi->mem_lower * 1024, 0x100000);
+	lmm_add_region(&malloc_lmm, &reghigh,
+		       (void*)phystokv(0x01000000), 0xfeffffff,
+		       0, LMM_PRI_HIGH);
 
-		/* Stop at the end of upper memory.  */
-		skip(0x100000 + mbi->mem_upper * 1024, 0xffffffff);
+	
+	/* Add region from end of Xen-allocated data structures,
+	 * to start of user memory
+	 */	
+	lmm_add_free(&malloc_lmm, 
+		     (void *)bspgtab_end_pa, 
+		     USER_MEM_START - bspgtab_end_pa);
+	
+	/* Everything above 16M */
+	lmm_remove_free( &malloc_lmm, (void*)USER_MEM_START, 
+		     -8 - USER_MEM_START );
+    
+	/* Everything below 1M  */
+	lmm_remove_free( &malloc_lmm, (void*)0, 0x100000 );
 
-		/* Skip our own text, data, and bss.  */
-		skip(kvtophys(_start), kvtophys(end));
 
-		/* FIXME: temporary state of affairs */
-		extern char __kimg_start[];
-		skip(kvtophys(__kimg_start), kvtophys(end));
+    return;
 
-		/* Skip the important stuff the bootloader passed to us.  */
-		skip(cmdline_start_pa, cmdline_end_pa);
-		if ((mbi->flags & MULTIBOOT_MODS)
-		    && (mbi->mods_count > 0))
-		{
-			struct multiboot_module *m = (struct multiboot_module*)
-				phystokv(mbi->mods_addr);
-			unsigned i;
-
-			skip(mbi->mods_addr,
-			     mbi->mods_addr +
-			     mbi->mods_count * sizeof(*m));
-			for (i = 0; i < mbi->mods_count; i++)
-			{
-				if (m[i].string != 0)
-				{
-					char *s = (char*)phystokv(m[i].string);
-					unsigned len = strlen(s);
-					skip(m[i].string, m[i].string+len+1);
-				}
-				skip(m[i].mod_start, m[i].mod_end);
-			}
-		}
-
-		/* We actually found a contiguous memory block
-		   that doesn't conflict with anything else!  Whew!
-		   Add it to the free list.  */
-		lmm_add_free(&malloc_lmm, (void *) min, max - min);
-
-		/* Continue searching just past the end of this region.  */
-		min = max;
-
-		/* The skip() macro jumps to this label
-		   to restart with a different (higher) min address.  */
-		retry:;
-	}
-	while (min < 0xffffffff);
 }
 

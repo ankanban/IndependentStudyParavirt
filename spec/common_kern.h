@@ -1,9 +1,13 @@
 #ifndef _SPEC_COMMON_KERN_H_
 #define _SPEC_COMMON_KERN_H_
 
+/* Xen includes */
+#include <stdint.h>
+#include <xen/xen.h>
+
 /*********************************************************************/
 /*                                                                   */
-/* Interface between Multiboot and our kernel                        */
+/* Interface between Xen and our kernel                        */
 /*                                                                   */
 /*********************************************************************/
 
@@ -31,7 +35,7 @@ int machine_phys_frames(void);
      *       frames in the kernel region, unless you are planning to parse
      *       the multiboot information and/or e820 yourself.
      */
-int kernel_main(mbinfo_t *mbinfo, int argc, char **argv, char **envp);
+int kernel_main(start_info_t *mbinfo, int argc, char **argv, char **envp);
 
 /*********************************************************************/
 /*                                                                   */
