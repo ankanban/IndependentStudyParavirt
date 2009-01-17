@@ -8,6 +8,7 @@
  *  @author Fred Hacker (fhacker)
  *  @bug No known bugs.
  */
+#define FORCE_DEBUG
 #define DEBUG_LEVEL KDBG_INFO
 #include <common_kern.h>
 
@@ -59,7 +60,7 @@ extern lmm_t malloc_lmm;
 extern struct multiboot_info boot_info;
 
 
-shared_info_t *HYPERVISOR_shared_info;
+start_info_t *HYPERVISOR_start_info;
 
 unsigned long hypervisor_virt_start;
 
@@ -77,7 +78,7 @@ kernel_main(start_info_t *mbinfo, int argc, char **argv, char **envp)
      * It already knows not to touch kernel image.
      */
 
-    HYPERVISOR_shared_info = mbinfo;
+    HYPERVISOR_start_info = mbinfo;
 
     /*
      * Install the timer handler function.

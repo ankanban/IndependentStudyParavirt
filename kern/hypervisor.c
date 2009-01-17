@@ -46,12 +46,17 @@
 #include <linux/highmem.h>
 */
 
+#include <vmm.h>
+#include <vmm_page.h>
+#include <xen/xen.h>
+#include <assert.h>
+
 void xen_l1_entry_update(pte_t *ptr, pte_t val)
 {
 	mmu_update_t u;
 	u.ptr = virt_to_machine(ptr);
 	u.val = __pte_val(val);
-	BUG_ON(HYPERVISOR_mmu_update(&u, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmu_update(&u, 1, NULL, DOMID_SELF) < 0);
 }
 
 void xen_l2_entry_update(pmd_t *ptr, pmd_t val)
@@ -59,7 +64,7 @@ void xen_l2_entry_update(pmd_t *ptr, pmd_t val)
 	mmu_update_t u;
 	u.ptr = virt_to_machine(ptr);
 	u.val = __pmd_val(val);
-	BUG_ON(HYPERVISOR_mmu_update(&u, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmu_update(&u, 1, NULL, DOMID_SELF) < 0);
 }
 
 #if defined(CONFIG_X86_PAE) || defined(CONFIG_X86_64)
@@ -68,7 +73,7 @@ void xen_l3_entry_update(pud_t *ptr, pud_t val)
 	mmu_update_t u;
 	u.ptr = virt_to_machine(ptr);
 	u.val = __pud_val(val);
-	BUG_ON(HYPERVISOR_mmu_update(&u, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmu_update(&u, 1, NULL, DOMID_SELF) < 0);
 }
 #endif
 
@@ -78,7 +83,7 @@ void xen_l4_entry_update(pgd_t *ptr, pgd_t val)
 	mmu_update_t u;
 	u.ptr = virt_to_machine(ptr);
 	u.val = __pgd_val(val);
-	BUG_ON(HYPERVISOR_mmu_update(&u, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmu_update(&u, 1, NULL, DOMID_SELF) < 0);
 }
 #endif /* CONFIG_X86_64 */
 
@@ -87,7 +92,7 @@ void xen_pt_switch(unsigned long ptr)
 	struct mmuext_op op;
 	op.cmd = MMUEXT_NEW_BASEPTR;
 	op.arg1.mfn = pfn_to_mfn(ptr >> PAGE_SHIFT);
-	BUG_ON(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
 }
 
 void xen_new_user_pt(unsigned long ptr)
@@ -95,14 +100,14 @@ void xen_new_user_pt(unsigned long ptr)
 	struct mmuext_op op;
 	op.cmd = MMUEXT_NEW_USER_BASEPTR;
 	op.arg1.mfn = pfn_to_mfn(ptr >> PAGE_SHIFT);
-	BUG_ON(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
 }
 
 void xen_tlb_flush(void)
 {
 	struct mmuext_op op;
 	op.cmd = MMUEXT_TLB_FLUSH_LOCAL;
-	BUG_ON(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
 }
 EXPORT_SYMBOL(xen_tlb_flush);
 
@@ -111,7 +116,7 @@ void xen_invlpg(unsigned long ptr)
 	struct mmuext_op op;
 	op.cmd = MMUEXT_INVLPG_LOCAL;
 	op.arg1.linear_addr = ptr & PAGE_MASK;
-	BUG_ON(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
 }
 EXPORT_SYMBOL(xen_invlpg);
 
@@ -121,7 +126,7 @@ void xen_tlb_flush_all(void)
 {
 	struct mmuext_op op;
 	op.cmd = MMUEXT_TLB_FLUSH_ALL;
-	BUG_ON(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
 }
 
 void xen_tlb_flush_mask(cpumask_t *mask)
@@ -131,7 +136,7 @@ void xen_tlb_flush_mask(cpumask_t *mask)
 		return;
 	op.cmd = MMUEXT_TLB_FLUSH_MULTI;
 	set_xen_guest_handle(op.arg2.vcpumask, mask->bits);
-	BUG_ON(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
 }
 
 void xen_invlpg_all(unsigned long ptr)
@@ -139,7 +144,7 @@ void xen_invlpg_all(unsigned long ptr)
 	struct mmuext_op op;
 	op.cmd = MMUEXT_INVLPG_ALL;
 	op.arg1.linear_addr = ptr & PAGE_MASK;
-	BUG_ON(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
 }
 
 void xen_invlpg_mask(cpumask_t *mask, unsigned long ptr)
@@ -150,7 +155,7 @@ void xen_invlpg_mask(cpumask_t *mask, unsigned long ptr)
 	op.cmd = MMUEXT_INVLPG_MULTI;
 	op.arg1.linear_addr = ptr & PAGE_MASK;
 	set_xen_guest_handle(op.arg2.vcpumask, mask->bits);
-	BUG_ON(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
 }
 
 #endif /* CONFIG_SMP */
@@ -166,7 +171,7 @@ void xen_pgd_pin(unsigned long ptr)
 	op.cmd = MMUEXT_PIN_L2_TABLE;
 #endif
 	op.arg1.mfn = pfn_to_mfn(ptr >> PAGE_SHIFT);
-	BUG_ON(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
 }
 
 void xen_pgd_unpin(unsigned long ptr)
@@ -174,7 +179,7 @@ void xen_pgd_unpin(unsigned long ptr)
 	struct mmuext_op op;
 	op.cmd = MMUEXT_UNPIN_TABLE;
 	op.arg1.mfn = pfn_to_mfn(ptr >> PAGE_SHIFT);
-	BUG_ON(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
 }
 
 void xen_set_ldt(unsigned long ptr, unsigned long len)
@@ -183,7 +188,7 @@ void xen_set_ldt(unsigned long ptr, unsigned long len)
 	op.cmd = MMUEXT_SET_LDT;
 	op.arg1.linear_addr = ptr;
 	op.arg2.nr_ents     = len;
-	BUG_ON(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
+	assert(HYPERVISOR_mmuext_op(&op, 1, NULL, DOMID_SELF) < 0);
 }
 
 /*
@@ -295,8 +300,8 @@ int xen_create_contiguous_region(
 	out_frame = __pa(vstart) >> PAGE_SHIFT;
 	rc = HYPERVISOR_memory_op(XENMEM_exchange, &exchange);
 	success = (exchange.nr_exchanged == (1UL << order));
-	BUG_ON(!success && ((exchange.nr_exchanged != 0) || (rc == 0)));
-	BUG_ON(success && (rc != 0));
+	assert(!success && ((exchange.nr_exchanged != 0) || (rc == 0)));
+	assert(success && (rc != 0));
 #if CONFIG_XEN_COMPAT <= 0x030002
 	if (unlikely(rc == -ENOSYS)) {
 		/* Compatibility when XENMEM_exchange is unsupported. */
@@ -392,8 +397,8 @@ void xen_destroy_contiguous_region(unsigned long vstart, unsigned int order)
 	/* 3. Do the exchange for non-contiguous MFNs. */
 	rc = HYPERVISOR_memory_op(XENMEM_exchange, &exchange);
 	success = (exchange.nr_exchanged == 1);
-	BUG_ON(!success && ((exchange.nr_exchanged != 0) || (rc == 0)));
-	BUG_ON(success && (rc != 0));
+	assert(!success && ((exchange.nr_exchanged != 0) || (rc == 0)));
+	assert(success && (rc != 0));
 #if CONFIG_XEN_COMPAT <= 0x030002
 	if (unlikely(rc == -ENOSYS)) {
 		/* Compatibility when XENMEM_exchange is unsupported. */
@@ -495,8 +500,8 @@ int xen_limit_pages_to_max_mfn(
 	/* 2. Get new memory below the required limit. */
 	rc = HYPERVISOR_memory_op(XENMEM_exchange, &exchange);
 	success = (exchange.nr_exchanged == (1UL << order));
-	BUG_ON(!success && ((exchange.nr_exchanged != 0) || (rc == 0)));
-	BUG_ON(success && (rc != 0));
+	assert(!success && ((exchange.nr_exchanged != 0) || (rc == 0)));
+	assert(success && (rc != 0));
 #if CONFIG_XEN_COMPAT <= 0x030002
 	if (unlikely(rc == -ENOSYS)) {
 		/* Compatibility when XENMEM_exchange is unsupported. */

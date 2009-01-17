@@ -198,7 +198,7 @@ query_update:
 
 ################### GENERIC RULES ######################
 %.$(DEP_SUFFIX): %.S
-	$(CC) $(CFLAGS) -DASSEMBLER $(INCLUDES) -M -MP -MF $@ -MT $(<:.S=.o) $<
+	$(CC) $(CFLAGS) -DASSEMBLER -D__ASSEMBLY__ $(INCLUDES) -M -MP -MF $@ -MT $(<:.S=.o) $<
 
 %.$(DEP_SUFFIX): %.s
 	@echo "You should use the .S file extension rather than .s"
@@ -209,7 +209,7 @@ query_update:
 	$(CC) $(CFLAGS) $(INCLUDES) -M -MP -MF $@ -MT $(<:.c=.o) $<
 
 %.o: %.S
-	$(CC) $(CFLAGS) -DASSEMBLER $(INCLUDES) -c -o $@ $<
+	$(CC) $(CFLAGS) -DASSEMBLER -D__ASSEMBLY__ $(INCLUDES) -c -o $@ $<
 	$(OBJCOPY) -R .comment -R .note $@ $@
 
 %.o: %.s

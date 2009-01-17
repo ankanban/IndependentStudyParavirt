@@ -7,6 +7,8 @@
  */
 
 //#include <p1kern.h>
+#define FORCE_DEBUG
+#define DEBUG_LEVEL KDBG_INFO
 #include <simics.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,7 +25,27 @@
 #include <keyboard.h>
 #include <console.h>
 #include <kernel_exceptions.h>
+#include <assert.h>
 #include <kdebug.h>
+
+#include <xen/callback.h>
+#include <hypervisor.h>
+
+void 
+hypervisor_callback(void)
+{
+}
+
+void
+failsafe_callback(void)
+{
+}
+
+void
+nmi(void)
+{
+}
+
 
 void
 set_exception_entry(int index,
@@ -101,6 +123,45 @@ set_idt_entry(int index,
    
 }
 
+
+int
+hypervisor_init()
+{
+  int ret = 0;
+  /* This is set_callbacks replacement in Xen 3.1 */
+
+  static struct callback_register event = {
+    .type = CALLBACKTYPE_event,
+    .address = { SEGSEL_KERNEL_CS, (unsigned long)hypervisor_callback },
+  };
+
+  static struct callback_register failsafe = {
+    .type = CALLBACKTYPE_failsafe,
+    .address = { SEGSEL_KERNEL_CS, (unsigned long)failsafe_callback },
+  };
+  /*
+  static struct callback_register nmi_cb = {
+    .type = CALLBACKTYPE_nmi,
+    .address = { SEGSEL_KERNEL_CS, (unsigned long)nmi },
+  };
+  */
+
+  ret = HYPERVISOR_callback_op(CALLBACKOP_register, &event);
+  
+  if (ret == 0)
+    ret = HYPERVISOR_callback_op(CALLBACKOP_register, &failsafe);
+  
+  assert(ret == 0);
+  /*
+  ret = HYPERVISOR_callback_op(CALLBACKOP_register, &nmi_cb);
+  
+  assert(ret == 0);
+  */
+  kdinfo("Setup hypervisor callbacks");
+
+  return ret;
+}
+
 /**
  * @brief Installs the timer tick handler, and initializes
  * timer, keyboard and console drivers.
@@ -109,7 +170,9 @@ int
 handler_install(void (*tickback_upper)(unsigned int),
 		void (*tickback_lower)(void))
 {
-  
+ 
+  hypervisor_init();
+ 
   exceptions_init();
 
   timer_init(tickback_upper,

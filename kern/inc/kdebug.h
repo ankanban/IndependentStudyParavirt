@@ -2,6 +2,7 @@
 #define __KDEBUG_H__
 
 #include <simics.h>
+#include <hypervisor.h>
 
 #define KDBG_NONE   0
 #define KDBG_LOG    1

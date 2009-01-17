@@ -76,7 +76,7 @@ extern start_info_t *xen_start_info;
 //void xen_cpu_idle (void);
 
 /* arch/xen/i386/kernel/hypervisor.c */
-void do_hypervisor_callback(struct pt_regs *regs);
+//void do_hypervisor_callback(struct pt_regs *regs);
 
 
 #include <hypercall.h>
@@ -116,7 +116,7 @@ HYPERVISOR_shutdown(
 
 	int rc = HYPERVISOR_sched_op(SCHEDOP_shutdown, &sched_shutdown);
 
-w
+
 	return rc;
 }
 
@@ -129,7 +129,7 @@ MULTI_update_va_mapping(
     mcl->op = __HYPERVISOR_update_va_mapping;
     mcl->args[0] = va;
 
-    mcl->args[1] = new_val.pte_low;
+    mcl->args[1] = new_val.value;
     mcl->args[2] = 0;
 
     mcl->args[MULTI_UVMFLAGS_INDEX] = flags;

@@ -1,6 +1,11 @@
 #ifndef __KERNEL_ASM_H__
 #define __KERNEL_ASM_H__
 
+#ifndef __ASSEMBLY__
+#include <stdint.h>
+#include <stddef.h>
+#endif /* __ASSEMBLY__ */
+
 #include <x86/seg.h>
 
 

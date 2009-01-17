@@ -33,7 +33,11 @@
 #ifndef __HYPERCALL_H__
 #define __HYPERCALL_H__
 
+#include <vmm_page.h>
 #include <string.h> /* memcpy() */
+#include <stdint.h>
+
+#include <xen/callback.h>
 
 #ifndef __HYPERVISOR_H__
 # error "please don't include this file directly"
@@ -247,7 +251,7 @@ HYPERVISOR_update_va_mapping(
 	pte_hi = new_val.pte_high;
 #endif
 	return _hypercall4(int, update_va_mapping, va,
-			   new_val.pte_low, pte_hi, flags);
+			   new_val.value, pte_hi, flags);
 }
 
 static inline int
@@ -305,7 +309,7 @@ HYPERVISOR_update_va_mapping_otherdomain(
 	unsigned long pte_hi = 0;
 
 	return _hypercall5(int, update_va_mapping_otherdomain, va,
-			   new_val.pte_low, pte_hi, flags, domid);
+			   new_val.value, pte_hi, flags, domid);
 }
 
 static inline int
