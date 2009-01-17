@@ -1,0 +1,3 @@
+#!/bin/sh
+sudo gzip -c kernel > kernel.gz
+sudo cp kernel.gz /boot
