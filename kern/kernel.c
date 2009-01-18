@@ -45,7 +45,6 @@
 #include <syscall_int.h>
 #include <kernel_asm.h>
 #include <sched.h>
-#include <kernel_syscall.h>
 #include <process.h>
 #include <kdebug.h>
 
@@ -87,15 +86,14 @@ kernel_main(start_info_t *mbinfo, int argc, char **argv, char **envp)
 		    sched_bottom_half);
 
 
-    enable_interrupts();
+    //enable_interrupts();
 
-    syscall_init();
 
     /*
      * initialize the PIC so that IRQs and
      * exception handlers don't overlap in the IDT.
      */
-    interrupt_setup();
+    //interrupt_setup();
 
     /*
      * When kernel_main() begins, interrupts are DISABLED.
@@ -103,7 +101,7 @@ kernel_main(start_info_t *mbinfo, int argc, char **argv, char **envp)
      * when you are ready.
      */
 
-    lprintf( "Hello from a brand new kernel!" );
+    kdinfo( "Hello from a brand new kernel!" );
 
     vmm_kernel_init();
     
