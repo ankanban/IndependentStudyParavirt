@@ -13,11 +13,17 @@
 #include <string.h>
 #include <x86/page.h>
 #include <x86/cr.h>
+#include <assert.h>
+#include <malloc.h>
+
 #include <vmm_page.h>
 #include <common_kern.h>
 #include <kdebug.h>
 #include <kernel.h>
 #include <vmm_zone.h>
+
+#include <xen/xen.h>
+#include <hypervisor.h>
 
 pde_t * kernel_page_dir;
 
@@ -35,6 +41,77 @@ unsigned int num_kernel_text_ppf;
 unsigned int num_kernel_text_pdes;
 unsigned int num_phys_mem_pdes;
 
+extern start_info_t * xen_start_info;
+
+void ** xen_mfn_list;
+
+#define XEN_UPDATE_QUEUE_SIZE 2048
+
+mmu_update_t xen_update_queue[XEN_UPDATE_QUEUE_SIZE];
+
+int xen_update_pos = 0;
+
+void
+vmm_flush_mmu_update_queue()
+{
+  int count = xen_update_pos;
+  int succ_count = 0;
+
+  int ret = HYPERVISOR_mmu_update(xen_update_queue, 
+				  count, 
+				  &succ_count, 
+				  DOMID_SELF);
+  
+  if (ret < 0) {
+    assert(ret == 0);
+  }
+  
+  if (succ_count != count) {
+    assert(succ_count == count);
+  }
+  
+  xen_update_pos = 0;
+  
+}
+
+void
+vmm_queue_mmu_update(uint64_t ptr,
+		     uint32_t value)
+{
+  xen_update_queue[xen_update_pos].ptr = ptr;
+  xen_update_queue[xen_update_pos].val = value;
+
+  xen_update_pos++;
+
+  if (xen_update_pos == XEN_UPDATE_QUEUE_SIZE) {
+    vmm_flush_mmu_update_queue();
+  }
+  
+}
+
+
+void *
+mach_to_phys(void * mach)
+{
+  uint32_t index = (uint32_t)mach >> PAGE_SHIFT;
+
+  uint32_t offset = (uint32_t)mach & (PAGE_SIZE - 1);
+  
+  uint32_t pfn = machine_to_phys_mapping[index];
+  
+  return (void *)((pfn << PAGE_SHIFT) | offset);
+}
+
+void * 
+phys_to_mach(void * phys)
+{
+  uint32_t index = (uint32_t)phys >> PAGE_SHIFT;
+  uint32_t offset = (uint32_t)phys & (PAGE_SIZE - 1);
+  
+  uint32_t mfn = (uint32_t)xen_mfn_list[index];
+
+  return (void *)((mfn << PAGE_SHIFT) | offset);
+}
 
 int 
 vmm_floor_log2(unsigned int n) 
@@ -99,13 +176,15 @@ vmm_ppfs_highmem_free(void *pgaddr, int num_pages)
 void *
 vmm_init_ppf_alloc(void)
 {
-  void * ppf = (void *)(USER_MEM_START + (init_page_count << PAGE_SHIFT)); 
+  //void * ppf = (void *)(USER_MEM_START + (init_page_count << PAGE_SHIFT)); 
 
   /* XXX Page allocation should not reset memory */
   /** If out of pages, and a user request, yield to other process
    */
   /** If a kernel request, something bad has happened */
-  init_page_count++;
+  //init_page_count++;
+
+  void * ppf = memalign(PAGE_SIZE, PAGE_SIZE);
   return ppf;
 }
 
@@ -288,21 +367,60 @@ vmm_init_map_page(pde_t * page_dir,
 		  void * ppf,
 		  int flags)
 {
-  pte_t * pte = NULL;
-  pde_t * pde = VMM_GET_PDE(page_dir,
-			    vaddr);
+  pte_t * pte_ma = NULL;
+  pte_t * pte_pa = NULL;
   
-  // Only toggle the flags, replacing with newer attributes
-  pde->value = (flags | PG_FLAG_PRESENT | (uint32_t)(pde->value & PAGE_MASK));
-  pde->value &= (~PD_FLAG_RSVD);
+  pte_t new_pte;
 
+  /* Get PTE Machine address */
+  pte_ma = (pte_t *)VMM_GET_PTE(page_dir, 
+				vaddr);
   
-  pte = (pte_t *)VMM_GET_PTE(page_dir, 
-			     vaddr);
+  assert(pte_ma != NULL);
+
+  /* Get Machine page for the physical page */
+  void * ppf_ma = phys_to_mach(ppf);
+  
+  /* Get Machine address for the PPF's PTE */
+  pte_t * ppf_pte_ma = (pte_t *)VMM_GET_PTE(page_dir,
+					    ppf);
+
+  pte_t * ppf_pte_pa = NULL;
+
+  if (ppf_pte_ma != NULL) {
+    /* A page table entry for this ppf exists in the
+     * default page table, add it to the PTE
+     */
+    ppf_pte_pa = (pte_t *)mach_to_phys(ppf_pte_ma);
+  }
+
+  if (ppf_pte_ma != NULL && 
+      ppf_pte_pa->value != 0) {
+    /* Xen default mapping existed, so use it */
+
+    new_pte.value = ppf_pte_pa->value;
+  } else {
+    /* The PPF was unmapped in the Xen default mapping,
+     * create a new mapping for it
+     */
     
-  // Replace previous mapping
-  pte->value = (flags | (uint32_t)(ppf));
- 
+    /* Get pseudo-phys address for PTE */
+    pte_pa = (pte_t *)mach_to_phys(pte_ma);
+    
+    /* Set the base value */
+    new_pte.value = pte_pa->value;
+    
+    if (new_pte.value != 0) {
+      return;
+    }
+        
+    // Replace previous mapping
+    new_pte.value = (flags | (uint32_t)(ppf_ma));
+  }
+
+  vmm_queue_mmu_update((uint32_t)pte_ma | MMU_NORMAL_PT_UPDATE,
+		       new_pte.value);
+  
 }
 
 void
@@ -319,7 +437,8 @@ vmm_init_map_pages(pde_t * page_dir,
 		      ppf + (i << PAGE_SHIFT),
 		      flags);
   }
-  
+
+  vmm_flush_mmu_update_queue();
   
 }
 
@@ -383,6 +502,7 @@ vmm_set_user_pgdir(void * page_dir)
 {
   // Adjust address from our displaced
   // kernel mapping address.
+  /*
   set_cr3((uint32_t)VMM_V2P(page_dir));
   
   uint32_t cr4 = 0;
@@ -400,7 +520,24 @@ vmm_set_user_pgdir(void * page_dir)
   cr0 |= CR0_PG;
 
   set_cr0(cr0);
+  */
+  int count = 1;
+  int succ_count = -1;
+  int ret = 0;
+  mmuext_op_t op;
 
+  op.cmd = MMUEXT_NEW_BASEPTR;
+  op.arg1.mfn = (uint32_t)phys_to_mach(VMM_V2P(page_dir));
+
+  ret = HYPERVISOR_mmuext_op(&op, 
+			     count, 
+			     &succ_count, 
+			     DOMID_SELF);
+
+  assert(ret == 0);
+
+  assert(succ_count == count);
+  
 }
 
 /*
@@ -411,6 +548,7 @@ void
 vmm_set_kernel_pgdir(void)
 {
   // Set the kernel page directory
+  /*
   set_cr3((uint32_t)VMM_V2P(kernel_page_dir));
   
   uint32_t cr4 = 0;
@@ -428,7 +566,26 @@ vmm_set_kernel_pgdir(void)
   cr0 |= CR0_PG;
 
   set_cr0(cr0);
+  */
 
+  int count = 1;
+  int succ_count = -1;
+  int ret = 0;
+  mmuext_op_t op;
+
+  op.cmd = MMUEXT_NEW_BASEPTR;
+  op.arg1.mfn = (uint32_t)phys_to_mach(VMM_V2P(kernel_page_dir));
+
+  ret = HYPERVISOR_mmuext_op(&op, 
+			     count, 
+			     &succ_count, 
+			     DOMID_SELF);
+
+  assert(ret == 0);
+
+  assert(succ_count == count);
+
+  return;
 }
 
 
@@ -531,6 +688,162 @@ vmm_create_kernel_pgdir()
 }
 
 void
+vmm_xen_map_pt(pte_t * pgtab, void * vaddr)
+{
+  int i = 0;
+
+  void * max_addr = VMM_P2V((num_phys_mem_ppf << PAGE_SHIFT));
+
+  for (; i < 1024; i++) {
+    pte_t * pte = pgtab + i;
+
+    void * va = (void *)((uint32_t)vaddr + (i << PAGE_SHIFT));
+
+    void * pa = VMM_V2P(va);
+
+    if (va >= max_addr) {
+      break;
+    }
+
+    void * ma = phys_to_mach(pa);
+
+    pte->value = (PGTAB_ATTRIB_SU_RW | 
+		  PG_FLAG_PRESENT | 
+		  ((uint32_t)ma & PAGE_MASK));
+    
+    pte->value &= (~PD_FLAG_RSVD);
+  }
+  
+
+}
+
+pde_t *
+vmm_xen_create_kernel_pgdir()
+{
+ 
+  // Allocate the initial page directory
+  init_page_count = 0;
+
+  pde_t * page_dir = kernel_page_dir;
+
+  //pde_t * page_dir = vmm_init_ppf_alloc();
+  //memset(page_dir, 0, PAGE_SIZE);
+  
+  kdtrace("Init Page Dir: %p",
+	  page_dir);
+
+  uint32_t i = 0;
+
+  kdinfo("Phys Mem PPFs: %d", num_phys_mem_ppf);
+  kdinfo("Phys Mem PDEs: %d", num_phys_mem_pdes);
+  kdinfo("Ktext PPFs   : %d", num_kernel_text_ppf);
+  kdinfo("Ktext PDEs   : %d", num_kernel_text_pdes);
+
+  kdtrace("About to map physical memory at %p",
+	  (void *)VMM_KERNEL_BASE);
+
+  // Map the entire physical memory in high memory area
+  // of the virtual memory map.
+
+  for (i = 0; i < num_phys_mem_pdes; i++) {
+
+    void * vaddr = VMM_P2V(i << PGTAB_REGION_SHIFT);
+
+    pde_t * pde_kvirt = VMM_GET_PDE(page_dir, 
+				    vaddr);
+
+    kdverbose("pde_kvirt:%p", 
+	      pde_kvirt);
+
+    // Allocate a page table
+    void * pt_ppf = vmm_init_ppf_alloc();
+    kdverbose("pt: %p", pt_ppf);
+    memset(pt_ppf, 0, PAGE_SIZE); 
+
+    void * pt_ppf_ma = phys_to_mach(pt_ppf);
+    
+    pte_t * pt_pte = VMM_GET_PTE(page_dir,
+				 pt_ppf);
+    
+
+    pte_t pteval;
+    
+    //pteval.value = pt_pte->value;
+
+    pteval.value = (PGTAB_ATTRIB_SU_RO | 
+		    PG_FLAG_PRESENT | 
+		    ((uint32_t)pt_ppf_ma & PAGE_MASK));
+
+    /* First mark the page table Read-only */
+    vmm_queue_mmu_update((uint32_t)pt_pte | MMU_NORMAL_PT_UPDATE,
+			 pteval.value);
+
+    
+    mmu_update_t req;
+
+    uint32_t ptr = (uint32_t)phys_to_mach(pde_kvirt);
+
+    req.ptr = ptr | MMU_NORMAL_PT_UPDATE;
+  
+    req.val = (PGTAB_ATTRIB_USR_RW | 
+	       PG_FLAG_PRESENT | 
+	       ((uint32_t)pt_ppf_ma & PAGE_MASK));
+    
+    req.val &= (~PD_FLAG_RSVD);
+
+    /* Now add the new page table to the page directory */
+    vmm_queue_mmu_update(req.ptr,
+			 req.val);
+        
+
+    /*
+    pde_kvirt->value = (PGTAB_ATTRIB_SU_RW | 
+			PG_FLAG_PRESENT | 
+			((uint32_t)pt_ppf & PAGE_MASK));
+    
+    pde_kvirt->value &= (~PD_FLAG_RSVD);
+    */
+  }
+  
+  vmm_flush_mmu_update_queue();
+
+  kdtrace("Mapping pages");
+  // Now map the physical memory
+  // directly into virtual address range
+  // starting at VMM_KERNEL_BASE
+  
+  vmm_init_map_pages(page_dir,
+		     (void *)(VMM_KERNEL_BASE),
+		     0,
+		     num_phys_mem_ppf,
+		     PGTAB_ATTRIB_SU_RW);
+  
+  kdtrace("init_page_count: %d",
+	  init_page_count);
+  
+  return VMM_P2V(page_dir);
+}
+
+
+/* initialize the Xen page map */
+int
+vmm_xen_page_init()
+{ 
+
+  assert(xen_start_info != NULL);
+  
+  kernel_page_dir = (void *)xen_start_info->pt_base;
+
+  assert(kernel_page_dir != NULL);
+
+  xen_mfn_list = (void **)xen_start_info->mfn_list;
+  
+  assert(xen_mfn_list != NULL);
+
+  return 0;
+} 
+
+void
 vmm_page_init()
 {
   num_phys_mem_ppf = machine_phys_frames();
@@ -539,15 +852,13 @@ vmm_page_init()
   num_phys_mem_pdes = VMM_NUM_PDES(num_phys_mem_ppf);
 
   kdinfo("Physical page frames   : 0x%x", num_phys_mem_ppf);
+
+  kdinfo("About to create Xen mappings");
+  vmm_xen_page_init();
+
   kdtrace("About to create kernel page directory");
 
-  kernel_page_dir  = vmm_create_kernel_pgdir();
-
-  kdtrace("Created Page tables, about to enable paging");
-  vmm_set_kernel_pgdir();
-
-  kdinfo("Set kernel page directory CR3");
-  kdtrace("Paging enabled");
+  kernel_page_dir  = vmm_xen_create_kernel_pgdir();
   
   // Add the pages used for building the initial kernel
   // page directory to the pages consumed by kernel

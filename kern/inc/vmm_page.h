@@ -122,13 +122,17 @@ typedef struct pte {
 					       PAGE_MASK))
 
 // Returns a ptr to the page tabel entry for the given virtual address
-#define VMM_GET_PTE(pgdir, vaddr) ((pte_t *)(VMM_GET_PGTAB(pgdir, vaddr) + \
-					     (((uint32_t)vaddr &	\
-					       PTE_ENTRY_MASK) >> \
-					      PTE_ENTRY_SHIFT)))
+#define VMM_GET_PTE(pgdir, vaddr)				  \
+  ((pte_t *)(							  \
+	     (VMM_GET_PGTAB(pgdir, vaddr) == NULL)?		  \
+	     (NULL):						  \
+	     (VMM_GET_PGTAB(pgdir, vaddr) +			  \
+	      (((uint32_t)vaddr &				  \
+		PTE_ENTRY_MASK) >>				  \
+	       PTE_ENTRY_SHIFT))))
 
 // Returns the physical page frame for a given virtual address
-#define VMM_GET_PPF(pgdir, vaddr)  ((void *)(VMM_GET_PTE(pgdir,          \
+#define VMM_GET_PPF(pgdir, vaddr)  ((void *)(VMM_GET_PTE(pgdir,		\
 							 vaddr)->value & \
 					     PAGE_MASK))
 

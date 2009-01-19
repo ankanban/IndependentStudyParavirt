@@ -59,7 +59,7 @@ extern lmm_t malloc_lmm;
 extern struct multiboot_info boot_info;
 
 
-start_info_t *HYPERVISOR_start_info;
+start_info_t *xen_start_info;
 
 unsigned long hypervisor_virt_start;
 
@@ -77,7 +77,7 @@ kernel_main(start_info_t *mbinfo, int argc, char **argv, char **envp)
      * It already knows not to touch kernel image.
      */
 
-    HYPERVISOR_start_info = mbinfo;
+    xen_start_info = mbinfo;
 
     /*
      * Install the timer handler function.

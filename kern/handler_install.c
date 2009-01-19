@@ -125,8 +125,31 @@ set_syscall_entry(int index,
  */
 void 
 set_idt_entry(int index, 
+	      int port,
 	      void (*handler)(void))
 {
+  int ret = 0;
+
+  evtchn_op_t ev_array[2];
+  evtchn_op_t * ev;
+
+  memset(&ev_array, 0, sizeof(ev_array));
+  
+  ev = &ev_array[0];
+
+  ev->cmd = EVTCHNOP_bind_virq;
+
+  ev->u.bind_virq.virq = index;
+  ev->u.bind_virq.vcpu = 0;
+  ev->u.bind_virq.port = port;
+  
+  
+  ret = HYPERVISOR_event_channel_op(EVTCHNOP_bind_virq,
+				    ev);
+
+  assert(ret == 0);
+
+  /*
   idt_gate_desc_t * idt_entry = (idt_gate_desc_t *)idt_base();
   unsigned short *handler_offset = (unsigned short *)&handler;
 
@@ -146,7 +169,7 @@ set_idt_entry(int index,
 	 idt_entry->offset_high,
 	 idt_entry->seg_sel,
 	 idt_entry->flags);
-   
+  */
 }
 
 
@@ -200,11 +223,13 @@ handler_install(void (*tickback_upper)(unsigned int),
     
   assert(ret == 0);
 
+  /*  keyboard_init(); */
+
   /*
   timer_init(tickback_upper,
 	     tickback_lower);
  
-  keyboard_init();
+ 
 
   console_init();
   */

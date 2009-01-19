@@ -50,6 +50,7 @@ set_exception_entry(int index,
 
 void 
 set_idt_entry(int index, 
+	      int port,
 	      void (*handler)(void));
 
 void 

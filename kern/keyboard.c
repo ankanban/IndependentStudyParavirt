@@ -50,6 +50,7 @@ keyboard_init()
 {
   // Set keyboard handler
   set_idt_entry(KEY_IDT_ENTRY,
+		KEYBOARD_PORT,
   		keyboard_wrapper);
   
 }
@@ -101,6 +102,9 @@ keyboard_interrupt_handler(void)
 
 
   outb(INT_CTL_PORT, INT_ACK_CURRENT);
+  
+  /* Enable event channel */
+  
 }
 
 /**

@@ -34,7 +34,7 @@ timer_init(void (*tickback_upper)(unsigned int),
 {
   timer_top_half = tickback_upper;
   timer_bottom_half = tickback_lower;
-
+  /*
   //Set timer handler
   set_idt_entry(TIMER_IDT_ENTRY,
 		timer_wrapper);
@@ -44,7 +44,7 @@ timer_init(void (*tickback_upper)(unsigned int),
   // Set the timer interrupt frequency
   outb(TIMER_PERIOD_IO_PORT, lsb(TIMER_CYCLES_PER_INT));
   outb(TIMER_PERIOD_IO_PORT, msb(TIMER_CYCLES_PER_INT));
-
+  */
 }
 
 /*
