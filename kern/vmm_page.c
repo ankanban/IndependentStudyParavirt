@@ -309,6 +309,93 @@ vmm_free_pgdir(pde_t * pgdir)
   vmm_ppf_free(pgdir);
 }
 
+/*
+ * Takes  a page_dir address, and a
+ * virtual address, and maps the page at the vaddr. 
+ */
+int
+vmm_map_page(pde_t * page_dir,
+	     void * vaddr,
+	     void * ppf,
+	     int flags)
+{
+  uint32_t val = 0;
+  pte_t * pte_ma = NULL;
+  pte_t * pte_pa = NULL;
+  pte_t * pte = NULL;
+  
+  pde_t * pde = VMM_GET_PDE(page_dir,
+			    vaddr);
+  
+  pde = (pde_t *)VMM_P2V(pde);
+  
+  pde_t * pde_pa = (pde_t *)VMM_V2P(pde);
+  
+  pde_t * pde_ma = (pde_t *)phys_to_mach(pde_pa);
+  
+  if (pde->value == 0) {
+    // Allocate a page table
+    void * pt_ppf = vmm_ppf_alloc();
+    
+    if (pt_ppf == NULL) {
+      kdinfo("Unable to allocate page table");
+      return -1;
+    }
+
+    memset(pt_ppf, 0, PAGE_SIZE);
+    kdverbose("pt_ppf:%p", pt_ppf);
+    kdverbose("pt_ppf_v2p:%p", VMM_V2P(pt_ppf));
+
+
+    void * pt_ppf_ma = phys_to_mach(VMM_V2P(pt_ppf));
+    
+    
+    val = (PGTAB_ATTRIB_SU_RO | 
+	   PG_FLAG_PRESENT | 
+	   ((uint32_t)pt_ppf_ma & PAGE_MASK));
+    
+
+    val &= (~PD_FLAG_RSVD);
+    
+    vmm_queue_mmu_update((uint32_t)pde_ma | 
+			 MMU_NORMAL_PT_UPDATE,
+			 val);
+
+    vmm_flush_mmu_update_queue();
+  } 
+
+  pte_ma = (pte_t *)VMM_GET_PTE(page_dir, 
+				vaddr);
+  
+  pte_pa = (pte_t *)mach_to_phys(pte_ma);
+  
+  pte = (pte_t *)VMM_P2V(pte_pa);
+  
+  void * ppf_pa = VMM_V2P(ppf);
+  
+  void * ppf_ma = phys_to_mach(ppf_pa);
+  
+  kdverbose("pte_ppf    :%p", pte_pa);
+  kdverbose("pte_ppf_p2v:%p", pte);
+ 
+ 
+  kdverbose("ppf        :%p", ppf);
+  kdverbose("ppf_pa        :%p", ppf_pa);
+  kdverbose("ppf_ma    :%p", ppf_ma);
+  
+  // Replace previous mapping
+  val = (flags | (uint32_t)ppf_ma);
+  
+  if (pte->value != val) {
+
+    vmm_queue_mmu_update((uint32_t)pte_ma | 
+			 MMU_NORMAL_PT_UPDATE,
+			 val);
+  }
+  
+  return 0;
+}
+
 int
 vmm_map_pages(pde_t * page_dir,
 	      void * vaddr,
@@ -325,6 +412,9 @@ vmm_map_pages(pde_t * page_dir,
       return -1;
     }
   }
+
+  vmm_flush_mmu_update_queue();
+
   return 0;
 }
 
@@ -332,25 +422,41 @@ uint32_t
 vmm_get_mapping(pde_t * page_dir,
 		void * vaddr)
 {
+  pte_t * pte_ma = NULL;
+  pte_t * pte_pa = NULL;
   pte_t * pte = NULL;
+
   pde_t * pde = VMM_GET_PDE(page_dir,
 			    vaddr);
   
   pde = (pde_t *)VMM_P2V(pde);
-
+  
   if (pde->value == 0)  {
     /* The page table does not exist */
     kdtrace("No page table");
     return 0;
   }
   
-  pde->value &= ~PD_FLAG_RSVD;
+  pte_ma = VMM_GET_PTE(page_dir, vaddr);
 
-  pte = VMM_GET_PTE(page_dir, vaddr);
+  if (pte_ma  == NULL) {
+    return 0;
+  }
 
+  pte_pa = (pte_t *)mach_to_phys(pte_ma);
   pte = (pte_t *)VMM_P2V(pte);
   
-  return pte->value;
+  uint32_t mapping_ma = pte->value;
+
+  uint32_t ppf_ma = mapping_ma & PAGE_MASK;
+
+  uint32_t mapping_flags = mapping_ma & PAGE_DIV;
+
+  uint32_t ppf_pa = (uint32_t)mach_to_phys((void *)ppf_ma);
+  
+  uint32_t mapping = ppf_pa | mapping_flags;
+  
+  return mapping;
 }
 
 
@@ -442,59 +548,6 @@ vmm_init_map_pages(pde_t * page_dir,
   
 }
 
-/*
- * Takes  a page_dir address, and a
- * virtual address, and maps the page at the vaddr. 
- */
-int
-vmm_map_page(pde_t * page_dir,
-	     void * vaddr,
-	     void * ppf,
-	     int flags)
-{
-  pte_t * pte = NULL;
-  pde_t * pde = VMM_GET_PDE(page_dir,
-			    vaddr);
-
-  pde = (pde_t *)VMM_P2V(pde);
-
-  if (pde->value == 0) {
-    // Allocate a page table
-    void * pt_ppf = vmm_ppf_alloc();
-    
-    if (pt_ppf == NULL) {
-      kdinfo("Unable to allocate page table");
-      return -1;
-    }
-
-    memset(pt_ppf, 0, PAGE_SIZE);
-    kdverbose("pt_ppf:%p", pt_ppf);
-    kdverbose("pt_ppf_v2p:%p", VMM_V2P(pt_ppf));
-    pde->value = (flags | PG_FLAG_PRESENT | ((uint32_t)VMM_V2P(pt_ppf) & 
-					     PAGE_MASK));
-    pde->value &= (~PD_FLAG_RSVD);
-  } else {
-    // Only toggle the flags, replacing with newer attributes
-    pde->value = (flags | PG_FLAG_PRESENT | (uint32_t)(pde->value & PAGE_MASK));
-    pde->value &= (~PD_FLAG_RSVD);
-  }
-
-  pte = (pte_t *)VMM_GET_PTE(page_dir, 
-			     vaddr);
-  
-  kdverbose("pte_ppf    :%p", pte);
-  kdverbose("pte_ppf_p2v:%p", VMM_P2V(pte));
- 
-  pte = (pte_t *)VMM_P2V(pte);
- 
-  kdverbose("ppf        :%p", ppf);
-  kdverbose("ppf_v2p    :%p", VMM_V2P(ppf));
-  
-  // Replace previous mapping
-  pte->value = (flags | (uint32_t)VMM_V2P(ppf));
-
-  return 0;
-}
 
 
 void

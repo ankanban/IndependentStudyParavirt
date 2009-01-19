@@ -275,5 +275,7 @@ vmm_set_user_pgdir(void * page_dir);
 void
 vmm_set_kernel_pgdir(void);
 
+void
+vmm_flush_mmu_update_queue(void);
 
 #endif /* __VMM_PAGE_H__ */

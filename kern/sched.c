@@ -251,6 +251,12 @@ sched_init()
   sched_thread_map = vmm_ppfs_alloc((sizeof(thread_map_t) + PAGE_SIZE) >> 
 				    PAGE_SHIFT);
   
+  sched_task_map->hashfn = sched_task_hashfn;
+
+  sched_task_map->hash[0].first = NULL;
+
+  sched_task_map->hash[0].last = NULL;
+
   HASH_INIT(sched_task_map,
 	    TASK_MAP_SIZE,
 	    sched_task_hashfn,
@@ -613,7 +619,12 @@ sched_save_thread_kernel_state(thread_t * old_thread,
 void
 sched_save_kernel_esp0(void)
 {
-  set_esp0(current_thread->kernel_esp0);
+  //set_esp0(current_thread->kernel_esp0);
+
+  int ret = HYPERVISOR_stack_switch(SEGSEL_KERNEL_DS,
+				    current_thread->kernel_esp0);
+
+  assert(ret == 0);
 }
 
 void

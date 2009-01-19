@@ -3,7 +3,7 @@
 #define __VARIABLE_HASH_H__
 
 #include <variable_queue.h>
-
+#include <string.h>
 
 #define HASH_NEW(H_TYPE, H_LIST_TYPE, H_KEY_TYPE, H_VAL_TYPE, H_SIZE)	\
   typedef struct {							\
@@ -17,10 +17,11 @@
 
 #define HASH_INIT(H_TABLE, H_SIZE, H_HASHFN, H_HASHCMP, H_HASHKEY) \
   do {								   \
-    uint32_t i = 0;							   \
-    for (; i < H_SIZE; i++) {					   \
-      Q_INIT_HEAD(&((H_TABLE)->hash[i]));			   \
-    }								   \
+    /*uint32_t i = 0;*/						   \
+    memset((H_TABLE)->hash, 0, sizeof((H_TABLE)->hash[0]) * H_SIZE); \
+    /*for (; i < H_SIZE; i++) {*/				   \
+    /*  Q_INIT_HEAD(&((H_TABLE)->hash[i]));*/			   \
+    /*  }	*/						   \
     (H_TABLE)->size = H_SIZE;					   \
     (H_TABLE)->hashfn = H_HASHFN;				   \
     (H_TABLE)->hashcmp = H_HASHCMP;				   \

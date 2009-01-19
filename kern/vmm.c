@@ -102,6 +102,9 @@ vmm_task_create(task_t * task)
   kdinfo("User Pgdir base: %p", upbdr);
   
   Q_INIT_HEAD(&task->vm_area_list);
+
+  vmm_set_user_pgdir(task->page_dir);
+
   /*
   if (vmm_task_load_kernel(task) < 0) {
     kdinfo("Unable to allocate task direct mapped segments");

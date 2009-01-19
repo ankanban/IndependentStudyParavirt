@@ -78,6 +78,8 @@ vm_area_create_identity(vm_area_t * vma)
      
   }
   
+  vmm_flush_mmu_update_queue();
+
   return 0;
 }
 
@@ -145,6 +147,8 @@ vm_area_copy_pagemap(vm_area_t * dst_vma,
     
   }
     
+  vmm_flush_mmu_update_queue();
+
   return 0;
 }
 
@@ -180,6 +184,8 @@ vm_area_copy_pagemap_single(vm_area_t * vma_dst,
 	       vpf,
 	       ppf,
 	       orig_flags & src_mask);
+
+  vmm_flush_mmu_update_queue();
 
 }
 
@@ -258,6 +264,9 @@ vm_area_copy(vm_area_t * dst_vma,
     }
     
   }
+  
+  vmm_flush_mmu_update_queue();
+  
 
   return 0;
 }
@@ -281,9 +290,9 @@ vm_area_copy_on_write(vm_area_t * vma,
   uint32_t mapping = 0;
 
   kdinfo("copy on write for vmarea start: %p, len: %u, pages: %u",
-	  dst_start,
-	  size, 
-	  num_pages);
+	 dst_start,
+	 size, 
+	 num_pages);
 
   for (i = 0; i < num_pages; i++) {
 
@@ -291,7 +300,7 @@ vm_area_copy_on_write(vm_area_t * vma,
     
     mapping = vmm_get_mapping(task->page_dir, 
 			      dst_vpf);
-
+    
     kdverbose("mapping = 0x%x", mapping);
 
     if ((mapping & PAGE_MASK) == 0) {
@@ -355,6 +364,8 @@ vm_area_copy_on_write(vm_area_t * vma,
     
   }
 
+  vmm_flush_mmu_update_queue();
+
   return 0;
 }
 
@@ -412,11 +423,13 @@ vm_area_unmap(vm_area_t * vma)
 	rc = vmm_map_page(task->page_dir,
 			  vpf,
 			  NULL,
-			  vma->flags & (~PG_FLAG_PRESENT) );
+			  /* vma->flags & */(~PG_FLAG_PRESENT) );
 	assert(rc == 0);
       }
     }
   }
+
+  vmm_flush_mmu_update_queue();
 
 }
 
@@ -454,6 +467,7 @@ vm_area_create_null(vm_area_t * vma)
 
   }
 
+  vmm_flush_mmu_update_queue();
   return 0;
 }
 
@@ -498,6 +512,9 @@ vm_area_setflags(vm_area_t * vma,
 	   vma->flags);
 
   }
+
+  vmm_flush_mmu_update_queue();
+
   return 0;
 }
 
@@ -570,6 +587,8 @@ vm_area_create(vm_area_t * vma,
 
   }
 
+  vmm_flush_mmu_update_queue();
+
   return 0;
 }
 
@@ -617,6 +636,9 @@ vm_area_zero(struct vm_area * vma,
     }
     pg_offset = 0;
   }
+
+  vmm_flush_mmu_update_queue();
+    
   return 0;
 }
 
@@ -693,7 +715,9 @@ vm_area_load(struct vm_area * vma,
     total_bytes_read += bytes_read;
 
   }
-  
+
+  vmm_flush_mmu_update_queue();
+
   return total_bytes_read;
 }
 
@@ -884,6 +908,9 @@ vma_nopage_file(vm_area_t * vma,
   rc = vm_area_load(vma,
 		    vaddr,
 		    length);
+
+  vmm_flush_mmu_update_queue();
+
   return  rc;
 }
 
