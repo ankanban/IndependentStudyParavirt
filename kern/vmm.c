@@ -219,7 +219,7 @@ vmm_kernel_stack_init(thread_t * thread)
 					 thread->task,
 					 NULL,
 					 stack_size,
-					 PGTAB_ATTRIB_USR_RW,
+					 PGTAB_ATTRIB_SU_RW,
 					 VMA_TYPE_KERNEL_STACK,
 					 VMA_FLAG_STACK,
 					 NULL);

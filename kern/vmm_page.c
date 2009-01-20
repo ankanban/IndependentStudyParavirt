@@ -21,6 +21,9 @@
 #include <kdebug.h>
 #include <kernel.h>
 #include <vmm_zone.h>
+#include <thread.h>
+#include <task.h>
+#include <sched.h>
 
 #include <xen/xen.h>
 #include <hypervisor.h>
@@ -71,6 +74,24 @@ vmm_flush_mmu_update_queue()
   }
   
   xen_update_pos = 0;
+
+  count = 1;
+  succ_count = -1;
+
+  mmuext_op_t op;
+
+  op.cmd = MMUEXT_TLB_FLUSH_LOCAL;
+
+  ret = HYPERVISOR_mmuext_op(&op, 
+			     count, 
+			     &succ_count, 
+			     DOMID_SELF);
+
+  assert(ret == 0);
+
+  assert(succ_count == count);
+  
+
   
 }
 
@@ -271,7 +292,28 @@ vmm_create_pgdir()
 
   //memset(page_dir, 0, PAGE_SIZE);
   memcpy(page_dir, kernel_page_dir, PAGE_SIZE);
+  
 
+  // Mark the page directory page read-only
+  thread_t * thread = sched_get_current_thread();
+  pde_t * current_page_dir = NULL;
+
+  if (thread == NULL) {
+    current_page_dir = kernel_page_dir;
+  } else {
+    task_t * task = thread->task;
+    current_page_dir = task->page_dir;
+  }
+      
+  // Mark new page directory as read-only
+  // Required by Xen
+  vmm_map_page(current_page_dir,
+	       page_dir,
+	       VMM_V2P(page_dir),
+	       PGTAB_ATTRIB_SU_RO | PG_FLAG_PRESENT);
+
+  /* XXX Optional -- just forcing a flush for testing */
+  vmm_flush_mmu_update_queue();
 
   return page_dir;
 }
@@ -334,7 +376,15 @@ vmm_map_page(pde_t * page_dir,
   pde_t * pde_ma = (pde_t *)phys_to_mach(pde_pa);
   
   if (pde->value == 0) {
-    // Allocate a page table
+
+    /* We need to set up a page table 
+     * Page tables are referenced twice:
+     * 1. In the kernel virtual address map
+     * as part of the kernel's global page map
+     * 2. In the PDE, as a page table
+     * We need to ensure that mapping 1 is read-only
+     * before we can request mapping 2
+     */
     void * pt_ppf = vmm_ppf_alloc();
     
     if (pt_ppf == NULL) {
@@ -342,13 +392,31 @@ vmm_map_page(pde_t * page_dir,
       return -1;
     }
 
+    /* The page table has to be zeroed out initially */
     memset(pt_ppf, 0, PAGE_SIZE);
     kdverbose("pt_ppf:%p", pt_ppf);
     kdverbose("pt_ppf_v2p:%p", VMM_V2P(pt_ppf));
 
-
-    void * pt_ppf_ma = phys_to_mach(VMM_V2P(pt_ppf));
     
+    void * pt_ppf_ma = phys_to_mach(VMM_V2P(pt_ppf));
+
+    /* First Mark this page read-only in the kernel
+     * virtual map
+     */
+    pte_t * pt_ppf_pte_ma = VMM_GET_PTE(page_dir,
+					pt_ppf);
+    
+    
+    val = (PGTAB_ATTRIB_SU_RO | 
+	   PG_FLAG_PRESENT | 
+	   ((uint32_t)pt_ppf_ma & PAGE_MASK));
+    
+    
+    vmm_queue_mmu_update((uint32_t)pt_ppf_pte_ma |
+			 MMU_NORMAL_PT_UPDATE,
+			 val);
+
+    /* Now Add the Page Table Entry to the Page Directory */
     
     val = (PGTAB_ATTRIB_SU_RO | 
 	   PG_FLAG_PRESENT | 
@@ -357,12 +425,15 @@ vmm_map_page(pde_t * page_dir,
 
     val &= (~PD_FLAG_RSVD);
     
-    vmm_queue_mmu_update((uint32_t)pde_ma | 
+    
+    vmm_queue_mmu_update((uint32_t)pde_ma |
 			 MMU_NORMAL_PT_UPDATE,
 			 val);
 
     vmm_flush_mmu_update_queue();
   } 
+
+
 
   pte_ma = (pte_t *)VMM_GET_PTE(page_dir, 
 				vaddr);
@@ -370,22 +441,30 @@ vmm_map_page(pde_t * page_dir,
   pte_pa = (pte_t *)mach_to_phys(pte_ma);
   
   pte = (pte_t *)VMM_P2V(pte_pa);
+
+  val = 0;
+
+  /* A NULL value means zero-mapping, we never
+   * should map physical page '0'
+   */
+  if (ppf != NULL) {
+
+    void * ppf_pa = VMM_V2P(ppf);
   
-  void * ppf_pa = VMM_V2P(ppf);
+    void * ppf_ma = phys_to_mach(ppf_pa);
   
-  void * ppf_ma = phys_to_mach(ppf_pa);
-  
-  kdverbose("pte_ppf    :%p", pte_pa);
-  kdverbose("pte_ppf_p2v:%p", pte);
+    kdverbose("pte_ppf    :%p", pte_pa);
+    kdverbose("pte_ppf_p2v:%p", pte);
  
  
-  kdverbose("ppf        :%p", ppf);
-  kdverbose("ppf_pa        :%p", ppf_pa);
-  kdverbose("ppf_ma    :%p", ppf_ma);
+    kdverbose("ppf        :%p", ppf);
+    kdverbose("ppf_pa        :%p", ppf_pa);
+    kdverbose("ppf_ma    :%p", ppf_ma);
   
-  // Replace previous mapping
-  val = (flags | (uint32_t)ppf_ma);
-  
+    // Replace previous mapping
+    val = (flags | (uint32_t)ppf_ma);
+  }
+
   if (pte->value != val) {
 
     vmm_queue_mmu_update((uint32_t)pte_ma | 
@@ -437,23 +516,39 @@ vmm_get_mapping(pde_t * page_dir,
     return 0;
   }
   
+  /* Get Machine Address of PTE  */
   pte_ma = VMM_GET_PTE(page_dir, vaddr);
 
   if (pte_ma  == NULL) {
     return 0;
   }
 
+  /* Pseudo Physical Address of PTE */
   pte_pa = (pte_t *)mach_to_phys(pte_ma);
-  pte = (pte_t *)VMM_P2V(pte);
+
+  /* Virtual Address of PTE */
+  pte = (pte_t *)VMM_P2V(pte_pa);
   
+  /* Machine Address of PPF + Flags */
   uint32_t mapping_ma = pte->value;
 
+  /* PPF Machine Address */
   uint32_t ppf_ma = mapping_ma & PAGE_MASK;
 
+  /* PPF Flags */
   uint32_t mapping_flags = mapping_ma & PAGE_DIV;
 
-  uint32_t ppf_pa = (uint32_t)mach_to_phys((void *)ppf_ma);
-  
+  /* PPF Pseudo Physical Address */
+  uint32_t ppf_pa = 0;
+
+  /* PA is only meaningful if MA is non-zero,
+   * An MA of zero indicates a NULL mapping
+   */
+  if (ppf_ma !=  0) {
+    ppf_pa = (uint32_t)mach_to_phys((void *)ppf_ma);
+  }
+
+  /* Mapping is it should look on unparavirted kernel */
   uint32_t mapping = ppf_pa | mapping_flags;
   
   return mapping;
@@ -559,7 +654,7 @@ vmm_set_user_pgdir(void * page_dir)
   set_cr3((uint32_t)VMM_V2P(page_dir));
   
   uint32_t cr4 = 0;
-  
+ 
   cr4 |= CR4_PGE;
   cr4 &= ~CR4_PAE;
   cr4 &= ~CR4_PSE;
@@ -574,13 +669,20 @@ vmm_set_user_pgdir(void * page_dir)
 
   set_cr0(cr0);
   */
+
+  vmm_flush_mmu_update_queue();
+
   int count = 1;
   int succ_count = -1;
   int ret = 0;
   mmuext_op_t op;
 
+
   op.cmd = MMUEXT_NEW_BASEPTR;
+
+  /* Xen needs a Machine Frame *Number * */
   op.arg1.mfn = (uint32_t)phys_to_mach(VMM_V2P(page_dir));
+  op.arg1.mfn >>= PAGE_SHIFT;
 
   ret = HYPERVISOR_mmuext_op(&op, 
 			     count, 
@@ -621,13 +723,18 @@ vmm_set_kernel_pgdir(void)
   set_cr0(cr0);
   */
 
+  vmm_flush_mmu_update_queue();
+
   int count = 1;
   int succ_count = -1;
   int ret = 0;
   mmuext_op_t op;
 
   op.cmd = MMUEXT_NEW_BASEPTR;
+
   op.arg1.mfn = (uint32_t)phys_to_mach(VMM_V2P(kernel_page_dir));
+
+  op.arg1.mfn >>= PAGE_SHIFT;
 
   ret = HYPERVISOR_mmuext_op(&op, 
 			     count, 
@@ -637,6 +744,8 @@ vmm_set_kernel_pgdir(void)
   assert(ret == 0);
 
   assert(succ_count == count);
+
+
 
   return;
 }
