@@ -12,8 +12,10 @@
 #include <thread.h>
 #include <sched.h>
 #include <console.h>
+#include <xen/xen.h>
 #include <kdebug.h>
 
+extern shared_info_t * xen_shared_info;
 
 #define NUM_HANDLERS 20
 static void (*exception_wrappers[])(void) = {
@@ -183,10 +185,25 @@ gpf_exception_handler(uint32_t errflag)
 }
 
 
+/* Only works for a single Virtual CPU */
+uint32_t
+xen_get_cr2()
+{
+
+  if (xen_shared_info->vcpu_info[0].evtchn_upcall_pending != 0) {
+    xen_shared_info->vcpu_info[0].evtchn_upcall_pending = 0;
+  }
+
+  return xen_shared_info->vcpu_info[0].arch.cr2;
+}
+
 void
 pgf_exception_handler(uint32_t errflag)
 {
-  uint32_t cr2 = get_cr2();
+  //uint32_t cr2 = get_cr2();
+
+  uint32_t cr2 = xen_get_cr2();
+
   uint32_t vpf = cr2 & PAGE_MASK;
   
   kdinfo("pgf Exception received: err: 0x%x, cr2: 0x%x, pg: 0x%x", 

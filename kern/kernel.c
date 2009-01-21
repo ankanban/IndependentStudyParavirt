@@ -61,6 +61,8 @@ extern struct multiboot_info boot_info;
 
 start_info_t *xen_start_info;
 
+volatile shared_info_t *xen_shared_info;
+
 unsigned long hypervisor_virt_start;
 
 /** @brief Kernel entrypoint.

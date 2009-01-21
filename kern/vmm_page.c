@@ -45,6 +45,7 @@ unsigned int num_kernel_text_pdes;
 unsigned int num_phys_mem_pdes;
 
 extern start_info_t * xen_start_info;
+extern shared_info_t * xen_shared_info;
 
 void ** xen_mfn_list;
 
@@ -1002,8 +1003,38 @@ vmm_xen_page_init()
   
   assert(xen_mfn_list != NULL);
 
+  
   return 0;
 } 
+
+shared_info_t *
+vmm_xen_map_shared_info()
+{
+  /* Allocate some arbitrary 
+   * page, this page will be used
+   * as shared_info
+   */
+  void * ppf_va = vmm_ppf_alloc();
+  
+  assert(ppf_va != NULL);
+
+  pte_t * pte_ma = VMM_GET_PTE(kernel_page_dir,
+			       ppf_va);
+  
+  uint32_t shinfo_ma = xen_start_info->shared_info;
+
+  uint32_t val = (PGTAB_ATTRIB_SU_RW |
+		  PG_FLAG_PRESENT |
+		  shinfo_ma);
+  
+  vmm_queue_mmu_update((uint32_t)pte_ma | MMU_NORMAL_PT_UPDATE,
+		       val);
+  
+  vmm_flush_mmu_update_queue();
+  
+  return (shared_info_t *)ppf_va;
+}
+
 
 void
 vmm_page_init()
@@ -1016,12 +1047,15 @@ vmm_page_init()
   kdinfo("Physical page frames   : 0x%x", num_phys_mem_ppf);
 
   kdinfo("About to create Xen mappings");
+
   vmm_xen_page_init();
+
 
   kdtrace("About to create kernel page directory");
 
   kernel_page_dir  = vmm_xen_create_kernel_pgdir();
   
+
   // Add the pages used for building the initial kernel
   // page directory to the pages consumed by kernel
   // text segment
@@ -1073,5 +1107,15 @@ vmm_page_init()
 		VMM_KERNEL_STACK_PAGES);
   
   kdtrace("Finsihed VMM Paging Initialization");
+
+
+  /* We need memory manager initialized before we
+   * map xen_shared_info
+   */
+  
+  xen_shared_info = (shared_info_t *)vmm_xen_map_shared_info();
+
+  assert(xen_shared_info != NULL);
+
 
 }
