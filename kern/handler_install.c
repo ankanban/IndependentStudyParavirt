@@ -32,9 +32,11 @@
 #include <xen/callback.h>
 #include <hypervisor.h>
 
-trap_info_t trap_table[256];
+trap_info_t ex_trap_table[32] = { {0,0,0,0}, };
+int num_ex;
 
-
+trap_info_t sys_trap_table[64] = { {0,0,0,0}, };
+int num_sys;
 
 void 
 hypervisor_callback(void)
@@ -51,13 +53,14 @@ set_exception_entry(int index,
 		    void (*handler)(void))
 {
 
-  trap_info_t * ti = &trap_table[index];
+  trap_info_t * ti = &ex_trap_table[num_ex++];
 
   ti->vector = index;
   ti->flags = 0;
   ti->cs = SEGSEL_KERNEL_CS;;
   ti->address = (unsigned long)handler;
 
+ 
   TI_SET_DPL(ti, 3);
   TI_SET_IF(ti, 1);
   
@@ -84,7 +87,7 @@ set_syscall_entry(int index,
 		  void (*handler)(void))
 {
 
-  trap_info_t * ti = &trap_table[index];
+  trap_info_t * ti = &sys_trap_table[num_sys++];
 
   ti->vector = index;
   ti->flags = 0;
@@ -94,7 +97,7 @@ set_syscall_entry(int index,
   /* Ring 3 is allowed to call the interrupt */
   TI_SET_DPL(ti, 3);
   /* Syscalls don't set the event mask */
-  TI_SET_IF(ti, 0);
+  TI_SET_IF(ti, 1);
 
   /*
   idt_gate_desc_t * idt_entry = (idt_gate_desc_t *)idt_base();
@@ -213,15 +216,25 @@ handler_install(void (*tickback_upper)(unsigned int),
   int ret = 0;
 
   hypervisor_init();
+
+  num_ex = 0;
+  num_sys = 0;
  
   exceptions_init();
 
-  syscall_init();
-
   /* Register the exceptions tabe with Xen */
-  ret = HYPERVISOR_set_trap_table(trap_table);
+  ret = HYPERVISOR_set_trap_table(ex_trap_table);
     
   assert(ret == 0);
+
+
+  syscall_init();
+
+  /* Register the syscall table with Xen */
+  ret = HYPERVISOR_set_trap_table(sys_trap_table);
+    
+  assert(ret == 0);
+
 
   /*  keyboard_init(); */
 

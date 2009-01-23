@@ -311,7 +311,7 @@ vmm_create_pgdir()
   vmm_map_page(current_page_dir,
 	       page_dir,
 	       VMM_V2P(page_dir),
-	       PGTAB_ATTRIB_SU_RO | PG_FLAG_PRESENT);
+	       PGTAB_ATTRIB_USR_RO | PG_FLAG_PRESENT);
 
   /* XXX Optional -- just forcing a flush for testing */
   vmm_flush_mmu_update_queue();
@@ -418,8 +418,11 @@ vmm_map_page(pde_t * page_dir,
 			 val);
 
     /* Now Add the Page Table Entry to the Page Directory */
-    
-    val = (PGTAB_ATTRIB_SU_RO | 
+    /* Set its access rights to USR_RW, to give the
+     * most open access rights to the page group
+     * Read-only access is set at page-level
+     */
+    val = (PGTAB_ATTRIB_USR_RW | 
 	   PG_FLAG_PRESENT | 
 	   ((uint32_t)pt_ppf_ma & PAGE_MASK));
     

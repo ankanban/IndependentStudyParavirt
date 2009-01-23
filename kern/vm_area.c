@@ -714,6 +714,11 @@ vm_area_load(struct vm_area * vma,
     load_offset = 0;
     total_bytes_read += bytes_read;
 
+    vmm_map_page(vma->task->page_dir,
+		 vpf,
+		 ppf,
+		 vma->flags | PG_FLAG_PRESENT);
+
   }
 
   vmm_flush_mmu_update_queue();
