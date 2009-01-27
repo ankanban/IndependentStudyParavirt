@@ -30,7 +30,7 @@
 #endif
 
 
-#define kdprintf(...) lprintf(__VA_ARGS__)
+#define kdprintf(...) printk(__VA_ARGS__)
 
 #if (DEBUG_LEVEL >= KDBG_LOG)
 #define kdlog(...) kdprintf(__VA_ARGS__)
@@ -83,5 +83,7 @@
 #define kdverbose(...)
 
 #endif /* DEBUG_LEVEL */
+
+void printk(const char *fmt, ...);
 
 #endif /* __KDEBUG_H__ */

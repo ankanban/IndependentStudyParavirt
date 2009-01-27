@@ -26,6 +26,7 @@
 #include <sched.h>
 
 #include <xen/xen.h>
+#include <xen/io/console.h>
 #include <hypervisor.h>
 
 pde_t * kernel_page_dir;
@@ -46,6 +47,8 @@ unsigned int num_phys_mem_pdes;
 
 extern start_info_t * xen_start_info;
 extern shared_info_t * xen_shared_info;
+extern struct xencons_interface * xen_console;
+extern void * xen_store;
 
 void ** xen_mfn_list;
 
@@ -1010,8 +1013,8 @@ vmm_xen_page_init()
   return 0;
 } 
 
-shared_info_t *
-vmm_xen_map_shared_info()
+int
+vmm_xen_map_shared()
 {
   /* Allocate some arbitrary 
    * page, this page will be used
@@ -1026,16 +1029,50 @@ vmm_xen_map_shared_info()
   
   uint32_t shinfo_ma = xen_start_info->shared_info;
 
+  /* Don't cache writes to shared info */
   uint32_t val = (PGTAB_ATTRIB_SU_RW |
 		  PG_FLAG_PRESENT |
+		  PG_FLAG_PWT |
 		  shinfo_ma);
   
   vmm_queue_mmu_update((uint32_t)pte_ma | MMU_NORMAL_PT_UPDATE,
 		       val);
+
+
+  xen_shared_info = (shared_info_t *)ppf_va;
+
+
+  /* Map the xen_store shared page */
   
+  ppf_va = vmm_ppf_alloc();
+  
+  assert(ppf_va != NULL);
+
+  pte_ma = VMM_GET_PTE(kernel_page_dir,
+		       ppf_va);
+  
+  uint32_t store_ma = (xen_start_info->store_mfn) << PAGE_SHIFT;
+
+  val = (PGTAB_ATTRIB_SU_RW |
+	 PG_FLAG_PRESENT |
+	 store_ma);
+  
+  vmm_queue_mmu_update((uint32_t)pte_ma | MMU_NORMAL_PT_UPDATE,
+		       val);
+  
+  xen_store = ppf_va;
+
+  /*
+  void * console_ma = (void *)((xen_start_info->console.domU.mfn) << PAGE_SHIFT);
+
+  void * console_pa = mach_to_phys(console_ma);
+  
+  xen_console = (struct xencons_interface *)VMM_P2V(console_pa);
+  */
+
   vmm_flush_mmu_update_queue();
   
-  return (shared_info_t *)ppf_va;
+  return 0;
 }
 
 
@@ -1050,8 +1087,6 @@ vmm_page_init()
   kdinfo("Physical page frames   : 0x%x", num_phys_mem_ppf);
 
   kdinfo("About to create Xen mappings");
-
-  vmm_xen_page_init();
 
 
   kdtrace("About to create kernel page directory");
@@ -1116,7 +1151,7 @@ vmm_page_init()
    * map xen_shared_info
    */
   
-  xen_shared_info = (shared_info_t *)vmm_xen_map_shared_info();
+  //vmm_xen_map_shared();
 
   assert(xen_shared_info != NULL);
 

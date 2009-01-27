@@ -147,7 +147,7 @@ CRT0 = $(410UDIR)/crt0.o
 # 410KERNEL_LIBS, which is under external control.
 
 KCFLAGS = -nostdinc -fno-strict-aliasing -fno-builtin -Wall -gstabs -Werror -O0 -m32
-KLDFLAGS = -static -Ttext 100000 --fatal-warnings -melf_i386
+KLDFLAGS = -static -Ttext 0 --fatal-warnings -melf_i386 #-Ttext 100000 --fatal-warnings -melf_i386
 KINCLUDES = -I$(410KDIR) -I$(410KDIR)/inc \
 			-I$(410SDIR) \
 			-I$(STUKDIR) -I$(STUKDIR)/inc \

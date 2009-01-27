@@ -19,6 +19,7 @@
 #include <handler_install.h>
 #include <console.h>
 
+void xen_console_print(const char *data, int length);
 
 /* @brief The software cursor location */
 static unsigned char cons_curr_row;
@@ -257,13 +258,17 @@ putbyte(char ch)
 void 
 putbytes(const char * str, int length)
 {
-  int i = 0;
+  
 
+  xen_console_print(str, length);
+#if 0
+  int i = 0;
   for (i = 0; i < length; i++) {
     cons_putbyte(*(str + i));
   } 
   /* Update hw cursor */
   cons_update_cursor();
+#endif
 }
 
 char

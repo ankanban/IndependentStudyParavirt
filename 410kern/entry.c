@@ -28,6 +28,10 @@ void mb_entry(start_info_t *info, void *istack, void *bstack) {
     char **argv;
     char **envp;
 
+    // artificial break point
+    int i = 1;
+    while (i);
+
     /* Want (kilobytes*1024)/PAGE_SIZE, but definitely avoid overflow */
     //n_phys_frames = (info->mem_upper+1024)/(PAGE_SIZE/1024);
 

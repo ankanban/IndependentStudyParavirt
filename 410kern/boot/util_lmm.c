@@ -19,15 +19,27 @@
  * improvements that they make and grant CSL redistribution rights.
  */
 
+#include <assert.h>
 #include <boot/multiboot.h>
 #include <string/string.h>
 #include <malloc/malloc_internal.h>
 #include <kvmphys.h>
 #include <lmm/lmm_types.h>
+#include <vmm_page.h>
+#include <vmm_zone.h>
+#include <hypervisor.h>
 
 #include <common_kern.h>
 #include <stdint.h>
 #include <xen/xen.h>
+
+#define PAGE_SHIFT 12
+
+/* The bootstrap stack */
+char stack[8192];
+
+/* shared info */
+extern char shared_info[PAGE_SIZE];
 
 /* The 410 world does not care about memory in this much detail.  If we
  * ever start caring this much, these definitions should move back
@@ -56,6 +68,10 @@
 #define LMMF_16MB   0x02
 
 static struct lmm_region reg1mb, reg16mb, reghigh;
+
+extern start_info_t *xen_start_info;
+extern shared_info_t *xen_shared_info;
+extern struct xencons_interface * xen_console;
 
 #define skip(hole_min, hole_max)					\
 	if ((max > (hole_min)) && (min < (hole_max)))			\
@@ -99,8 +115,27 @@ void mb_util_lmm (start_info_t *mbi, void * bstack, lmm_t *lmm)
 
 	vm_offset_t bspgtab_start_pa = mbi->pt_base;
   */
+  xen_start_info = mbi;
+  
+  vmm_xen_page_init();
+  
+  pte_t sh_pte;
+  sh_pte.value = mbi->shared_info | 7;
+  
+  if ( HYPERVISOR_update_va_mapping((unsigned long)shared_info, 
+				    sh_pte, 
+				    UVMF_INVLPG) )
+    {
+      //printk("Failed to map shared_info!!\n");
+      assert(0);
+    }
+  
+  xen_shared_info = (shared_info_t *)shared_info;
+  
+  xen_console = (struct xencons_interface *)mach_to_phys((void *)(xen_start_info->console.domU.mfn << PAGE_SHIFT)); 
 
-	vm_offset_t bspgtab_end_pa = (vm_offset_t)bstack;
+
+  vm_offset_t bspgtab_end_pa = (vm_offset_t)bstack;
 
 	/* Initialize the base memory allocator
 	   according to the PC's physical memory regions.  */

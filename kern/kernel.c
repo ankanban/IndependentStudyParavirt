@@ -46,6 +46,11 @@
 #include <kernel_asm.h>
 #include <sched.h>
 #include <process.h>
+#include <xen_time.h>
+#include <xen_events.h>
+#include <xen_bitops.h>
+#include <xen/features.h>
+#include <xen/version.h>
 #include <kdebug.h>
 
 /*
@@ -61,9 +66,35 @@ extern struct multiboot_info boot_info;
 
 start_info_t *xen_start_info;
 
-volatile shared_info_t *xen_shared_info;
+shared_info_t *xen_shared_info;
+
+extern struct xencons_interface * xen_console;
 
 unsigned long hypervisor_virt_start;
+
+void * xen_store;
+
+void xen_init_console(void);
+
+
+unsigned char xen_features[XENFEAT_NR_SUBMAPS * 32];
+
+void setup_xen_features(void)
+{
+    xen_feature_info_t fi;
+    int i, j;
+
+    for (i = 0; i < XENFEAT_NR_SUBMAPS; i++) 
+    {
+        fi.submap_idx = i;
+        if (HYPERVISOR_xen_version(XENVER_get_features, &fi) < 0)
+            break;
+        
+        for (j=0; j<32; j++)
+            xen_features[i*32+j] = !!(fi.submap & 1<<j);
+    }
+}
+
 
 /** @brief Kernel entrypoint.
  *  
@@ -79,7 +110,8 @@ kernel_main(start_info_t *mbinfo, int argc, char **argv, char **envp)
      * It already knows not to touch kernel image.
      */
 
-    xen_start_info = mbinfo;
+
+    kdinfo( "Hello from a brand new kernel!" );
 
     /*
      * Install the timer handler function.
@@ -87,25 +119,20 @@ kernel_main(start_info_t *mbinfo, int argc, char **argv, char **envp)
     handler_install(kernel_tick,
 		    sched_bottom_half);
 
-
-    //enable_interrupts();
-
-
-    /*
-     * initialize the PIC so that IRQs and
-     * exception handlers don't overlap in the IDT.
-     */
-    //interrupt_setup();
-
-    /*
-     * When kernel_main() begins, interrupts are DISABLED.
-     * You should delete this comment, and enable them --
-     * when you are ready.
-     */
-
-    kdinfo( "Hello from a brand new kernel!" );
-
     vmm_kernel_init();
+
+    xen_init_events();
+
+    /* Enable events */
+    __sti();
+
+    setup_xen_features();
+
+    xen_init_console();
+    
+    xen_init_time();
+
+    kdinfo("Console Initialized");    
     
     sched_init();
 

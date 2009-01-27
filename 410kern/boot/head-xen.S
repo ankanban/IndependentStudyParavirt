@@ -18,13 +18,14 @@ _start:
         cld
 	movl %esp, %ebx /* bootstrap stack address */	
         lss stack_start,%esp
-	pushl %ebx      /* Pass in top of bootstrap stack */
+	pushl %ebx      /* Pass in top of bootstrap stack, given to us
+	                     by Xen */
 	pushl %esp      /* Pass in the top of the initial stack */
         pushl %esi 
         call mb_entry
 
 stack_start:
-	.long stack+8192, SEGSEL_KERNEL_DS
+	.long stack+8192, SEG_SELECT_KERNEL
 
         /* Unpleasant -- the PTE that maps this page is actually overwritten */
         /* to map the real shared-info page! :-)                             */
@@ -53,7 +54,7 @@ CS		= 0x2C
 	pushl %edx; \
 	pushl %ecx; \
 	pushl %ebx; \
-	movl $(SEGSEL_KERNEL_DS),%edx; \
+	movl $(__KERNEL_DS),%edx; \
 	movl %edx,%ds; \
 	movl %edx,%es;
 
@@ -70,6 +71,39 @@ CS		= 0x2C
 	addl $4,%esp;	\
 	iret;		
 
+//ENTRY(divide_error)
+//	pushl $0		# no error code
+//	pushl $do_divide_error
+do_exception:
+    pushl %ds
+	pushl %eax
+	xorl %eax, %eax
+	pushl %ebp
+	pushl %edi
+	pushl %esi
+	pushl %edx
+	decl %eax			# eax = -1
+	pushl %ecx
+	pushl %ebx
+	cld
+	movl %es, %ecx
+	movl ES(%esp), %edi		# get the function address
+	movl ORIG_EAX(%esp), %edx	# get the error code
+	movl %eax, ORIG_EAX(%esp)
+	movl %ecx, ES(%esp)
+	movl $(__KERNEL_DS), %ecx
+	movl %ecx, %ds
+	movl %ecx, %es
+	movl %esp,%eax			# pt_regs pointer
+    pushl %edx
+    pushl %eax
+	call *%edi
+    jmp ret_from_exception
+    
+ret_from_exception:
+    movb CS(%esp),%cl
+    addl $8,%esp
+    RESTORE_ALL
 
 # A note on the "critical region" in our callback handler.
 # We want to avoid stacking callback handlers due to events occurring
@@ -93,7 +127,7 @@ ENTRY(hypervisor_callback)
 11:     push %esp
         call do_hypervisor_callback
         add  $4,%esp
-        movl xen_shared_info,%esi
+        movl HYPERVISOR_shared_info,%esi
         xorl %eax,%eax
         movb CS(%esp),%cl
     	test $2,%cl          # slow return to ring 2 or 3
@@ -156,3 +190,88 @@ ENTRY(failsafe_callback)
       pop  %gs
       iret
                 
+ENTRY(coprocessor_error)
+	pushl $0
+	pushl $do_coprocessor_error
+	jmp do_exception
+
+ENTRY(simd_coprocessor_error)
+	pushl $0
+	pushl $do_simd_coprocessor_error
+	jmp do_exception
+
+ENTRY(device_not_available)
+        iret
+
+ENTRY(debug)
+	pushl $0
+	pushl $do_debug
+	jmp do_exception
+
+ENTRY(int3)
+	pushl $0
+	pushl $do_int3
+	jmp do_exception
+
+ENTRY(overflow)
+	pushl $0
+	pushl $do_overflow
+	jmp do_exception
+
+ENTRY(bounds)
+	pushl $0
+	pushl $do_bounds
+	jmp do_exception
+
+ENTRY(invalid_op)
+	pushl $0
+	pushl $do_invalid_op
+	jmp do_exception
+
+
+ENTRY(coprocessor_segment_overrun)
+	pushl $0
+	pushl $do_coprocessor_segment_overrun
+	jmp do_exception
+
+
+ENTRY(invalid_TSS)
+	pushl $do_invalid_TSS
+	jmp do_exception
+
+
+ENTRY(segment_not_present)
+	pushl $do_segment_not_present
+	jmp do_exception
+
+
+ENTRY(stack_segment)
+	pushl $do_stack_segment
+	jmp do_exception
+
+
+ENTRY(general_protection)
+	pushl $do_general_protection
+	jmp do_exception
+
+
+ENTRY(alignment_check)
+	pushl $do_alignment_check
+	jmp do_exception
+
+
+ENTRY(page_fault)
+    pushl $do_page_fault
+    jmp do_exception
+    
+ENTRY(machine_check)
+	pushl $0
+	pushl $do_machine_check
+	jmp do_exception
+
+
+ENTRY(spurious_interrupt_bug)
+	pushl $0
+	pushl $do_spurious_interrupt_bug
+	jmp do_exception
+    

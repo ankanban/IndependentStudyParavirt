@@ -1,12 +1,15 @@
 /******************************************************************************
- * hypercall-x86_32.h
+ * hypercall.h
  * 
- * Copied from XenLinux.
+ * Linux-specific hypervisor handling.
  * 
  * Copyright (c) 2002-2004, K A Fraser
  * 
- * This file may be distributed separately from the Linux kernel, or
- * incorporated into other software packages, subject to the following license:
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation; or, when distributed
+ * separately from the Linux kernel or incorporated into other
+ * software packages, subject to the following license:
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this source file (the "Software"), to deal in the Software without
@@ -30,22 +33,29 @@
 #ifndef __HYPERCALL_H__
 #define __HYPERCALL_H__
 
-#include <xen/xen.h>
-#include <xen/sched.h>
-#include <xen/nmi.h>
-#include <x86/page.h>
 #include <vmm_page.h>
+#include <string.h> /* memcpy() */
+#include <stdint.h>
+
+#include <xen/callback.h>
+
+#ifndef __HYPERVISOR_H__
+# error "please don't include this file directly"
+#endif
 
 #define __STR(x) #x
 #define STR(x) __STR(x)
 
-extern char hypercall_page[PAGE_SIZE];
+
+#define HYPERCALL_STR(name)					\
+	"call hypercall_page + ("STR(__HYPERVISOR_##name)" * 32)"
+
 
 #define _hypercall0(type, name)			\
 ({						\
 	long __res;				\
 	asm volatile (				\
-		"call hypercall_page + ("STR(__HYPERVISOR_##name)" * 32)"\
+		HYPERCALL_STR(name)		\
 		: "=a" (__res)			\
 		:				\
 		: "memory" );			\
@@ -56,7 +66,7 @@ extern char hypercall_page[PAGE_SIZE];
 ({								\
 	long __res, __ign1;					\
 	asm volatile (						\
-		"call hypercall_page + ("STR(__HYPERVISOR_##name)" * 32)"\
+		HYPERCALL_STR(name)				\
 		: "=a" (__res), "=b" (__ign1)			\
 		: "1" ((long)(a1))				\
 		: "memory" );					\
@@ -67,7 +77,7 @@ extern char hypercall_page[PAGE_SIZE];
 ({								\
 	long __res, __ign1, __ign2;				\
 	asm volatile (						\
-		"call hypercall_page + ("STR(__HYPERVISOR_##name)" * 32)"\
+		HYPERCALL_STR(name)				\
 		: "=a" (__res), "=b" (__ign1), "=c" (__ign2)	\
 		: "1" ((long)(a1)), "2" ((long)(a2))		\
 		: "memory" );					\
@@ -78,7 +88,7 @@ extern char hypercall_page[PAGE_SIZE];
 ({								\
 	long __res, __ign1, __ign2, __ign3;			\
 	asm volatile (						\
-		"call hypercall_page + ("STR(__HYPERVISOR_##name)" * 32)"\
+		HYPERCALL_STR(name)				\
 		: "=a" (__res), "=b" (__ign1), "=c" (__ign2), 	\
 		"=d" (__ign3)					\
 		: "1" ((long)(a1)), "2" ((long)(a2)),		\
@@ -91,7 +101,7 @@ extern char hypercall_page[PAGE_SIZE];
 ({								\
 	long __res, __ign1, __ign2, __ign3, __ign4;		\
 	asm volatile (						\
-		"call hypercall_page + ("STR(__HYPERVISOR_##name)" * 32)"\
+		HYPERCALL_STR(name)				\
 		: "=a" (__res), "=b" (__ign1), "=c" (__ign2),	\
 		"=d" (__ign3), "=S" (__ign4)			\
 		: "1" ((long)(a1)), "2" ((long)(a2)),		\
@@ -104,7 +114,7 @@ extern char hypercall_page[PAGE_SIZE];
 ({								\
 	long __res, __ign1, __ign2, __ign3, __ign4, __ign5;	\
 	asm volatile (						\
-		"call hypercall_page + ("STR(__HYPERVISOR_##name)" * 32)"\
+		HYPERCALL_STR(name)				\
 		: "=a" (__res), "=b" (__ign1), "=c" (__ign2),	\
 		"=d" (__ign3), "=S" (__ign4), "=D" (__ign5)	\
 		: "1" ((long)(a1)), "2" ((long)(a2)),		\
@@ -167,6 +177,13 @@ HYPERVISOR_fpu_taskswitch(
 }
 
 static inline int
+HYPERVISOR_sched_op_compat(
+	int cmd, unsigned long arg)
+{
+	return _hypercall2(int, sched_op_compat, cmd, arg);
+}
+
+static inline int
 HYPERVISOR_sched_op(
 	int cmd, void *arg)
 {
@@ -180,6 +197,14 @@ HYPERVISOR_set_timer_op(
 	unsigned long timeout_hi = (unsigned long)(timeout>>32);
 	unsigned long timeout_lo = (unsigned long)timeout;
 	return _hypercall2(long, set_timer_op, timeout_lo, timeout_hi);
+}
+
+static inline int
+HYPERVISOR_platform_op(
+	struct xen_platform_op *platform_op)
+{
+	platform_op->interface_version = XENPF_INTERFACE_VERSION;
+	return _hypercall1(int, platform_op, platform_op);
 }
 
 static inline int
@@ -212,7 +237,7 @@ HYPERVISOR_memory_op(
 
 static inline int
 HYPERVISOR_multicall(
-	void *call_list, int nr_calls)
+	multicall_entry_t *call_list, int nr_calls)
 {
 	return _hypercall2(int, multicall, call_list, nr_calls);
 }
@@ -231,9 +256,19 @@ HYPERVISOR_update_va_mapping(
 
 static inline int
 HYPERVISOR_event_channel_op(
-	int cmd, void *op)
+	int cmd, void *arg)
 {
-	return _hypercall2(int, event_channel_op, cmd, op);
+	int rc = _hypercall2(int, event_channel_op, cmd, arg);
+
+
+	return rc;
+}
+
+static inline int
+HYPERVISOR_acm_op(
+	int cmd, void *arg)
+{
+	return _hypercall2(int, acm_op, cmd, arg);
 }
 
 static inline int
@@ -252,9 +287,12 @@ HYPERVISOR_console_io(
 
 static inline int
 HYPERVISOR_physdev_op(
-	void *physdev_op)
+	int cmd, void *arg)
 {
-	return _hypercall1(int, physdev_op, physdev_op);
+	int rc = _hypercall2(int, physdev_op, cmd, arg);
+
+
+	return rc;
 }
 
 static inline int
@@ -269,9 +307,7 @@ HYPERVISOR_update_va_mapping_otherdomain(
 	unsigned long va, pte_t new_val, unsigned long flags, domid_t domid)
 {
 	unsigned long pte_hi = 0;
-#ifdef CONFIG_X86_PAE
-	pte_hi = new_val.pte_high;
-#endif
+
 	return _hypercall5(int, update_va_mapping_otherdomain, va,
 			   new_val.value, pte_hi, flags, domid);
 }
@@ -294,40 +330,52 @@ static inline int
 HYPERVISOR_suspend(
 	unsigned long srec)
 {
-	return _hypercall3(int, sched_op, SCHEDOP_shutdown,
-			   SHUTDOWN_suspend, srec);
+	struct sched_shutdown sched_shutdown = {
+		.reason = SHUTDOWN_suspend
+	};
+
+	int rc = _hypercall3(int, sched_op, SCHEDOP_shutdown,
+			     &sched_shutdown, srec);
+
+
+	return rc;
 }
 
 static inline int
 HYPERVISOR_nmi_op(
-	unsigned long op,
-	unsigned long arg)
+	unsigned long op, void *arg)
 {
 	return _hypercall2(int, nmi_op, op, arg);
 }
 
-static inline int
-HYPERVISOR_sysctl(
-	unsigned long op)
+static inline unsigned long
+HYPERVISOR_hvm_op(
+    int op, void *arg)
 {
-	return _hypercall1(int, sysctl, op);
+    return _hypercall2(unsigned long, hvm_op, op, arg);
 }
 
 static inline int
-HYPERVISOR_domctl(
-	unsigned long op)
+HYPERVISOR_callback_op(
+	int cmd, void *arg)
 {
-	return _hypercall1(int, domctl, op);
+	return _hypercall2(int, callback_op, cmd, arg);
 }
+
+static inline int
+HYPERVISOR_xenoprof_op(
+	int op, void *arg)
+{
+	return _hypercall2(int, xenoprof_op, op, arg);
+}
+
+static inline int
+HYPERVISOR_kexec_op(
+	unsigned long op, void *args)
+{
+	return _hypercall2(int, kexec_op, op, args);
+}
+
+
 
 #endif /* __HYPERCALL_H__ */
-
-/*
- * Local variables:
- *  c-file-style: "linux"
- *  indent-tabs-mode: t
- *  c-indent-level: 8
- *  c-basic-offset: 8
- *  tab-width: 8
- * End:
- */

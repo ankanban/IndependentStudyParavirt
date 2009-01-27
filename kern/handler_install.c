@@ -31,6 +31,7 @@
 
 #include <xen/callback.h>
 #include <hypervisor.h>
+#include <xen_events.h>
 
 trap_info_t ex_trap_table[32] = { {0,0,0,0}, };
 int num_ex;
@@ -38,15 +39,14 @@ int num_ex;
 trap_info_t sys_trap_table[64] = { {0,0,0,0}, };
 int num_sys;
 
+void xen_init_console(void);
+
 void 
-hypervisor_callback(void)
-{
-}
+hypervisor_callback(void);
 
 void
-failsafe_callback(void)
-{
-}
+failsafe_callback(void);
+
 
 void
 set_exception_entry(int index,
@@ -61,8 +61,8 @@ set_exception_entry(int index,
   ti->address = (unsigned long)handler;
 
  
-  TI_SET_DPL(ti, 3);
-  TI_SET_IF(ti, 1);
+  //TI_SET_DPL(ti, 3);
+  //TI_SET_IF(ti, 1);
   
   
   /*  
@@ -97,7 +97,7 @@ set_syscall_entry(int index,
   /* Ring 3 is allowed to call the interrupt */
   TI_SET_DPL(ti, 3);
   /* Syscalls don't set the event mask */
-  TI_SET_IF(ti, 1);
+  //TI_SET_IF(ti, 1);
 
   /*
   idt_gate_desc_t * idt_entry = (idt_gate_desc_t *)idt_base();
@@ -180,22 +180,12 @@ int
 hypervisor_init()
 {
   int ret = 0;
-  /* This is set_callbacks replacement in Xen 3.1 */
+  /* use older Xen interface 3.0.2*/
 
-  static struct callback_register event = {
-    .type = CALLBACKTYPE_event,
-    .address = { SEGSEL_KERNEL_CS, (unsigned long)hypervisor_callback },
-  };
-
-  static struct callback_register failsafe = {
-    .type = CALLBACKTYPE_failsafe,
-    .address = { SEGSEL_KERNEL_CS, (unsigned long)failsafe_callback },
-  };
-
-  ret = HYPERVISOR_callback_op(CALLBACKOP_register, &event);
-  
-  if (ret == 0)
-    ret = HYPERVISOR_callback_op(CALLBACKOP_register, &failsafe);
+  ret = HYPERVISOR_set_callbacks(SEGSEL_KERNEL_CS,
+				 (unsigned long)hypervisor_callback,
+				 SEGSEL_KERNEL_CS,
+				 (unsigned long)failsafe_callback);
   
   assert(ret == 0);
 
@@ -227,25 +217,12 @@ handler_install(void (*tickback_upper)(unsigned int),
     
   assert(ret == 0);
 
-
   syscall_init();
 
   /* Register the syscall table with Xen */
   ret = HYPERVISOR_set_trap_table(sys_trap_table);
     
   assert(ret == 0);
-
-
-  /*  keyboard_init(); */
-
-  /*
-  timer_init(tickback_upper,
-	     tickback_lower);
- 
- 
-
-  console_init();
-  */
 
 
   return 0;

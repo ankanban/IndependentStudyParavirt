@@ -139,7 +139,8 @@ set_cr4:
     ret
 
 .global init_tss
-
+init_tss:
+	.skip 0x1000
 # esp0 is not a register.  But we can pretend!
 .global get_esp0
 get_esp0:

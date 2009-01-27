@@ -130,7 +130,8 @@ SYSCALL_OBJS =  fork.o exec.o set_status.o vanish.o 			\
 #
 # Kernel object files you provide in from kern/
 #
-KERNEL_OBJS = handler_install.o console.o keyboard.o timer.o 		\
+KERNEL_OBJS = handler_install.o xen_events.o xen_time.o \
+		xen_console.o xencons_ring.o console.o keyboard.o timer.o				\
 		keyboard_wrapper.o timer_wrapper.o kernel_timer.o 	\
 		kernel_exceptions.o exception_wrappers.o        	\
 		vmm_zone.o vmm_page.o vm_area.o vmm.o file.o 		\

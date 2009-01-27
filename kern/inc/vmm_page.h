@@ -9,7 +9,7 @@
 #define __VMM_PAGE_H__
 
 #include <stdint.h>
-
+#include <vmm_zone.h>
 /**
  * @brief A page directory entry
  */
@@ -23,6 +23,24 @@ typedef struct pde {
 typedef struct pte {
   unsigned int value;
 } __attribute__((packed)) pte_t;
+
+struct pt_regs {
+        long ebx;
+        long ecx;
+        long edx;
+        long esi;
+        long edi;
+        long ebp;
+        long eax;
+        int  xds;
+        int  xes;
+        long orig_eax;
+        long eip;
+        int  xcs;
+        long eflags;
+        long esp;
+        int  xss;
+};
 
 
 /*
@@ -277,5 +295,14 @@ vmm_set_kernel_pgdir(void);
 
 void
 vmm_flush_mmu_update_queue(void);
+
+int
+vmm_xen_page_init();
+
+void *
+mach_to_phys(void * mach);
+
+void * 
+phys_to_mach(void * phys);
 
 #endif /* __VMM_PAGE_H__ */
