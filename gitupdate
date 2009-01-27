@@ -1,0 +1,5 @@
+#!/bin/sh
+git add `find . -name "*.[cSh]"`
+git add config.mk
+git add `find . -name "*.mk"`
+git add `find . -name Makefile`
