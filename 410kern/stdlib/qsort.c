@@ -34,7 +34,7 @@
 #include <types.h>
 #include <stdlib/stdlib.h>
 
-static inline char	*med3(char *, char *, char *, int (*)());
+static inline char	*med3(char *, char *, char *, int (*)(void));
 static inline void	 swapfunc(char *, char *, int, int);
 
 #define min(a, b)	(a) < (b) ? a : b
@@ -88,10 +88,7 @@ med3(a, b, c, cmp)
 }
 
 void
-qsort(a, n, es, cmp)
-	void *a;
-	size_t n, es;
-	int (*cmp)();
+qsort(void *a, size_t n, size_t es, int (*cmp)())
 {
 	char *pa, *pb, *pc, *pd, *pl, *pm, *pn;
 	int d, r, swaptype, swap_cnt;

@@ -25,8 +25,7 @@
  */
 
 char *
-strcat(s, add)
-register char *s, *add;
+strcat(register char *s, register char *add)
 {
 register char *ret = s;
 

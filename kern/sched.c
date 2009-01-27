@@ -38,11 +38,11 @@ task_t * sched_init_task;
 thread_t * sched_init_thread;
 
 void
-sched_scan_sleep_queue();
+sched_scan_sleep_queue(void);
 
 
 int
-trylock_kernel()
+trylock_kernel(void)
 {
   kdverbose("Trying kernel lock");
   int rc = mutex_trylock(&kernel_lock);
@@ -76,13 +76,13 @@ unlock_kernel()
 }
 
 void
-sched_lock()
+sched_lock(void)
 {
   //disable_interrupts();
 }
 
 void
-sched_unlock()
+sched_unlock(void)
 {
   //enable_interrupts();
 }
@@ -156,7 +156,7 @@ sched_thread_hashkey(thread_t * thread)
 
 
 void
-sched_start_init()
+sched_start_init(void)
 {
   kdtrace("Creating first task");
   
@@ -202,7 +202,7 @@ sched_start_init()
 
 }
 
-void sched_start_idle()
+void sched_start_idle(void)
 {
     
   sched_idle_task = task_create(NULL);
@@ -760,7 +760,7 @@ sched_wakeup_threads(thread_t * waitee,
 }
 
 void
-sched_scan_sleep_queue()
+sched_scan_sleep_queue(void)
 {
   kdverbose("Waking up sleeping threads");
   sched_wakeup_threads(NULL,

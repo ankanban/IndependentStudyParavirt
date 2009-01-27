@@ -276,7 +276,7 @@ vmm_free_pgdir(pde_t * pgdir);
  * @brief Intialize paging subsystem, allocators and other state
  */
 void
-vmm_page_init();
+vmm_page_init(void);
 
 /**
  * @brief Set the current page directory (register CR3) to the given
@@ -297,7 +297,7 @@ void
 vmm_flush_mmu_update_queue(void);
 
 int
-vmm_xen_page_init();
+vmm_xen_page_init(void);
 
 void *
 mach_to_phys(void * mach);

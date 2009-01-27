@@ -146,8 +146,8 @@ CRT0 = $(410UDIR)/crt0.o
 # 410kern/inc, kern/, kern/inc, then the 410kern/lib/* entries according to
 # 410KERNEL_LIBS, which is under external control.
 
-KCFLAGS = -nostdinc -fno-strict-aliasing -fno-builtin -Wall -gstabs -Werror -O0 -m32
-KLDFLAGS = -static -Ttext 0 --fatal-warnings -melf_i386 #-Ttext 100000 --fatal-warnings -melf_i386
+KCFLAGS =  -fno-builtin -Wall -Werror -Wredundant-decls -Wno-format -Wnested-externs -Winline -D__XEN_INTERFACE_VERSION__=0x00030205 -g -m32 -march=i686 #-nostdinc -fno-strict-aliasing -fno-builtin -Wall -gstabs -Werror -O0 -m32
+KLDFLAGS =  -m elf_i386 -N --fatal-warnings #-static -Ttext 0 --fatal-warnings -melf_i386 #-Ttext 100000 --fatal-warnings -melf_i386
 KINCLUDES = -I$(410KDIR) -I$(410KDIR)/inc \
 			-I$(410SDIR) \
 			-I$(STUKDIR) -I$(STUKDIR)/inc \

@@ -145,11 +145,10 @@
 static char digs[] = "0123456789abcdef";
 
 static void
-printnum(u, base, putc, putc_arg)
-	register unsigned long	u;	/* number to print */
-	register int		base;
-	void			(*putc)();
-	char			*putc_arg;
+printnum(register unsigned long u, 
+	 register int base,
+	 void (*putc)(), 
+	 char *putc_arg)
 {
 	char	buf[MAXBUF];	/* build number here */
 	register char *	p = &buf[MAXBUF-1];

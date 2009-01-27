@@ -33,8 +33,7 @@
  */
 
 int
-strlen(string)
-    register char *string;
+strlen(register char *string)
 {
 register char *ret = string;
 

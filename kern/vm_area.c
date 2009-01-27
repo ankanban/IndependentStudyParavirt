@@ -51,7 +51,7 @@ vm_area_create_identity(vm_area_t * vma)
   void * vpf = NULL;
   void * ppf = NULL;
   int i = 0;
-  int num_pages = ((uint32_t)(end_vpf - start_vpf) >> PAGE_SHIFT) + 1;
+  int num_pages = ((uint32_t)((char *)end_vpf - (char *)start_vpf) >> PAGE_SHIFT) + 1;
   
   kdinfo("identity spage: %p, epage: %p, vmarealen: 0x%x, num_pages: 0x%x",
 	 start_vpf,
@@ -60,8 +60,8 @@ vm_area_create_identity(vm_area_t * vma)
 	 num_pages);
 
   for (i = 0; i < num_pages; i++) {
-    vpf = start_vpf + (i << PAGE_SHIFT);
-    ppf = start_ppf + (i << PAGE_SHIFT);
+    vpf = (char *)start_vpf + (i << PAGE_SHIFT);
+    ppf = (char *)start_ppf + (i << PAGE_SHIFT);
 
     if (vmm_map_page(task->page_dir,
 		     vpf,
@@ -106,7 +106,7 @@ vm_area_copy_pagemap(vm_area_t * dst_vma,
   void * vpf = NULL;
 
   int i = 0;
-  int num_pages = ((uint32_t)(end_vpf - start_vpf) >> PAGE_SHIFT) + 1;
+  int num_pages = ((uint32_t)((char *)end_vpf - (char *)start_vpf) >> PAGE_SHIFT) + 1;
 
   kdinfo("vmarealen: %u, pages: %u",
 	 size, 
@@ -120,7 +120,7 @@ vm_area_copy_pagemap(vm_area_t * dst_vma,
   
   for (i = 0; i < num_pages; i++) {
 
-    vpf = start_vpf + (i << PAGE_SHIFT);
+    vpf = (char *)start_vpf + (i << PAGE_SHIFT);
 
     mapping = vmm_get_mapping(src_task->page_dir, 
 			      vpf);

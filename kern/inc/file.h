@@ -16,7 +16,7 @@ typedef struct file {
 } file_t;
 
 file_t *
-file_alloc();
+file_alloc(void);
 
 void
 file_get(file_t * file);

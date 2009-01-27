@@ -1,5 +1,7 @@
 #!/bin/sh
+git add gitupdate
 git add `find . -name "*.[cSh]"`
+git add `find . -name "*.lds"`
 git add config.mk
 git add `find . -name "*.mk"`
 git add `find . -name Makefile`

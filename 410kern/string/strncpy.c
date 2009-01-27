@@ -36,9 +36,7 @@
  */
 
 char *
-strncpy(to, from, count)
-    register char *to, *from;
-    register int count;
+strncpy(register char *to, register char *from, register int count)
 {
     register char *ret = to;
 

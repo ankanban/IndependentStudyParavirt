@@ -16,12 +16,12 @@ void lidt(void *idt, unsigned int limit);
 void *idt_base(void);
 
 /** @brief Disables interrupts */
-void disable_interrupts();
+void disable_interrupts(void);
 /** @brief Enables interrupts */
-void enable_interrupts();
+void enable_interrupts(void);
 
 /** @brief Read from the TSC */
-uint64_t rdtsc();
+uint64_t rdtsc(void);
 
 /** @brief Reads 1 byte from given port */
 uint8_t inb(uint16_t port);

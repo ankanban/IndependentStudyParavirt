@@ -61,7 +61,7 @@ void *lmm_alloc(lmm_t *lmm, vm_size_t size, lmm_flags_t flags)
 
 					/* Split the node and return its head */
 					newnode = (struct lmm_node*)
-							((void*)node + size);
+							((char *)node + size);
 					newnode->next = node->next;
 					newnode->size = node->size - size;
 					*nodep = newnode;

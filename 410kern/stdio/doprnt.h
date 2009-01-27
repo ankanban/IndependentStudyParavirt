@@ -28,7 +28,7 @@ void _doprnt(
 	register	const char *fmt,
 	va_list		args,
 	int		radix,		/* default radix - for '%r' */
- 	void		(*putc)(),	/* character output */
+ 	void		(*putc)(void),	/* character output */
 	char		*putc_arg);	/* argument for putc */
 
 #endif /* __DOPRNT_H_INCLUDED__ */

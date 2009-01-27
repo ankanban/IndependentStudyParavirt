@@ -38,6 +38,9 @@
 
 
 void
-keyboard_init();
+keyboard_init(void);
+
+void
+keyb_add_scancode(char sc);
 
 #endif /* __KEYBOARD_H__ */

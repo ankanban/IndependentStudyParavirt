@@ -69,7 +69,7 @@ extern char shared_info[PAGE_SIZE];
 
 static struct lmm_region reg1mb, reg16mb, reghigh;
 
-extern start_info_t *xen_start_info;
+
 extern shared_info_t *xen_shared_info;
 extern struct xencons_interface * xen_console;
 

@@ -108,7 +108,7 @@ HASH_NEW(thread_map_t,
 
 
 thread_t *
-thread_alloc();
+thread_alloc(void);
 
 void 
 thread_get(thread_t * thread);

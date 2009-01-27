@@ -6,7 +6,6 @@
 #include <kdebug.h>
 
 struct xencons_interface * xen_console;
-extern start_info_t * xen_start_info;
 
 void xencons_rx(char *buf, unsigned len, struct pt_regs *regs);
 void xencons_tx(void);

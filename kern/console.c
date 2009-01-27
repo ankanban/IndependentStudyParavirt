@@ -47,7 +47,7 @@ console_init()
  * row of the screen.
  */
 static inline void 
-cons_scroll()
+cons_scroll(void)
 {
   // Scroll the display one line upwards
   memcpy(FB_LOC_CHAR(0,0), 
@@ -72,7 +72,7 @@ cons_scroll()
  * @brief clear the screen, setting the attributes to default.
  */
 static inline void
-cons_clear()
+cons_clear(void)
 {
   int i = 0;
   unsigned short * loc = (unsigned short *)FB_LOC_CHAR(0, 0);
@@ -165,7 +165,7 @@ cons_putbyte(char ch)
  * as hidden
  */
 static inline void
-cons_hide_cursor()
+cons_hide_cursor(void)
 {
 
   cons_cursor_state = CONS_CURSOR_HIDDEN;
@@ -182,7 +182,7 @@ cons_hide_cursor()
  * @brief program the CRTC to display the cursor.
  */
 static inline void
-cons_display_cursor()
+cons_display_cursor(void)
 {
 
   /* calculate cursor offset */
@@ -210,7 +210,7 @@ cons_display_cursor()
  * mark it visible.
  */
 static inline void
-cons_show_cursor()
+cons_show_cursor(void)
 {
   cons_cursor_state = CONS_CURSOR_VISIBLE;
   cons_display_cursor();
@@ -221,7 +221,7 @@ cons_show_cursor()
  * it is marked visible.
  */
 static inline void
-cons_update_cursor()
+cons_update_cursor(void)
 {
   if (cons_cursor_state == CONS_CURSOR_VISIBLE) {
     cons_display_cursor();
@@ -243,10 +243,16 @@ draw_char(int row,
 int
 putbyte(char ch)
 {
+  char buf[1];
+  buf[0] = ch;
+  xen_console_print(buf, 1);
+  return ch;
+#if 0
   cons_putbyte(ch);
   //MAGIC_BREAK;
   /* Update hw cursor */
   cons_update_cursor();
+#endif
   return ch;
 }
 

@@ -7,7 +7,7 @@
 #include <lmm.h>
 #include <kdebug.h>
 
-extern lmm_t malloc_lmm;
+
 
 /* safe versions of malloc functions */
 void *malloc(size_t size)

@@ -58,25 +58,25 @@
  *
  * @note Use rarely.
  */
-uint32_t get_cr0();
+uint32_t get_cr0(void);
 
 /** Get CR2
  *
  * @note Use when appropriate.
  */
-uint32_t get_cr2();
+uint32_t get_cr2(void);
 
 /** Get CR3, the root of the paging hierarchy.
  *
  * @note Use when appropriate.
  */
-uint32_t get_cr3();
+uint32_t get_cr3(void);
 
 /** Get CR4.
  *
  * @note Use rarely.
  */
-uint32_t get_cr4();
+uint32_t get_cr4(void);
 
 /** Set CR0.
  *

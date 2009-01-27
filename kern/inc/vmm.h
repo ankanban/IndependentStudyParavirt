@@ -15,7 +15,7 @@
 #define THREAD_STACK_INT_SHIFT 2
 
 void
-vmm_kernel_init();
+vmm_kernel_init(void);
 
 int
 vmm_task_create(task_t * task);

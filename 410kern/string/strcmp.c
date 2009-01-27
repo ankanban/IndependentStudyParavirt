@@ -39,8 +39,7 @@
  */
 
 int
-strcmp(s1,s2)
-register unsigned char *s1, *s2;
+strcmp(register unsigned char *s1, register unsigned char *s2)
 {
 register unsigned int a, b;
 

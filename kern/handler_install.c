@@ -177,7 +177,7 @@ set_idt_entry(int index,
 
 
 int
-hypervisor_init()
+hypervisor_init(void)
 {
   int ret = 0;
   /* use older Xen interface 3.0.2*/

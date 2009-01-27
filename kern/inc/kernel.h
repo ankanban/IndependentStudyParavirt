@@ -1,6 +1,7 @@
 #ifndef _KERNEL_H_
 #define _KERNEL_H_
 
+#include <kernel_syscall.h>
 #include <kernel_asm.h>
 
 /*********************************************************************/
@@ -135,7 +136,7 @@ void get_cursor(int* row, int* col);
  *
  *  @return Void.
  */
-void hide_cursor();
+void hide_cursor(void);
 
 /** @brief Shows the cursor.
  *  
@@ -143,7 +144,7 @@ void hide_cursor();
  *
  *  @return Void.
  */
-void show_cursor();
+void show_cursor(void);
 
 /** @brief Clears the entire console.
  *
@@ -151,7 +152,7 @@ void show_cursor();
  *
  *  @return Void.
  */
-void clear_console();
+void clear_console(void);
 
 /** @brief Prints character ch with the specified color
  *         at position (row, col).
@@ -173,13 +174,6 @@ void draw_char(int row, int col, int ch, int color);
  */
 char get_char(int row, int col);
 
-int
-sys_gettid(void);
-
-/*
- * Generate all protos for segment selector setup
- */
-DEFINE_ALL_SET_SEG_PROTO;
 
 /**
  * Returns the floor form of binary logarithm for a 32 bit integer.
@@ -193,19 +187,19 @@ int
 ceil_pow2(unsigned int x);
 
 unsigned int
-kernel_getticks();
+kernel_getticks(void);
 
 unsigned int
-kernel_getseconds();
+kernel_getseconds(void);
 
 void
-set_kernel_segments();
+set_kernel_segments(void);
+
+//void
+//set_kernel_ss(void);
 
 void
-set_kernel_ss();
-
-void
-set_user_segments();
+set_user_segments(void);
 
 
 #endif /* _KERNEL_H_ */

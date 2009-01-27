@@ -187,7 +187,7 @@ gpf_exception_handler(uint32_t errflag)
 
 /* Only works for a single Virtual CPU */
 uint32_t
-xen_get_cr2()
+xen_get_cr2(void)
 {
 
   if (xen_shared_info->vcpu_info[0].evtchn_upcall_pending != 0) {

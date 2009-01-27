@@ -401,7 +401,7 @@ sys_cas2i_runflag(void * sysarg)
 }
 
 int 
-sys_get_ticks()
+sys_get_ticks(void)
 {
   return kernel_getticks();
 }

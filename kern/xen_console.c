@@ -5,6 +5,7 @@
 
 #include <hypervisor.h>
 #include <xen/io/console.h>
+#include <keyboard.h>
 #include <kdebug.h>
 
 /* Copies all print output to the Xen emergency console apart
@@ -24,15 +25,16 @@ static int xen_console_initialised = 0;
 
 void xencons_rx(char *buf, unsigned len, struct pt_regs *regs)
 {
-    if(len > 0)
-    {
-        /* Just repeat what's written */
-        buf[len] = '\0';
-        printk("%s", buf);
-        
-        if(buf[len-1] == '\r')
-            printk("\nNo console input handler.\n");
+  int i = 0;
+
+  for (; i < len; i++) {
+    if (buf[i] == '\r') {
+      keyb_add_scancode('\n');
+    } else {
+      keyb_add_scancode(buf[i]);
     }
+  }
+
 }
 
 void xencons_tx(void)

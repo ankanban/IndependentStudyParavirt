@@ -89,7 +89,7 @@ do_context_switch(thread_t * old_thread,
 		  void * page_dir);
 
 void
-sched_bottom_half();
+sched_bottom_half(void);
 
 void
 sched_halt(void);

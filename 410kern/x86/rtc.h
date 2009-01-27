@@ -22,6 +22,6 @@ typedef struct time {
 
 void gettime(time_t *time);
 
-void printtime();
+void printtime(void);
 
 #endif /* _RTC_H_ */

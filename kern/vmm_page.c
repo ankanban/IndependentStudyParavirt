@@ -45,7 +45,7 @@ unsigned int num_kernel_text_ppf;
 unsigned int num_kernel_text_pdes;
 unsigned int num_phys_mem_pdes;
 
-extern start_info_t * xen_start_info;
+
 extern shared_info_t * xen_shared_info;
 extern struct xencons_interface * xen_console;
 extern void * xen_store;
@@ -492,8 +492,8 @@ vmm_map_pages(pde_t * page_dir,
   int i = 0;
   for (i = 0; i <  num_pages; i++) {
     if (vmm_map_page(page_dir,
-		     vaddr + (i << PAGE_SHIFT),
-		     ppf + (i << PAGE_SHIFT),
+		     (char *)vaddr + (i << PAGE_SHIFT),
+		     (char *)ppf + (i << PAGE_SHIFT),
 		     flags) < 0) {
       return -1;
     }
@@ -641,8 +641,8 @@ vmm_init_map_pages(pde_t * page_dir,
   int i = 0;
   for (i = 0; i <  num_pages; i++) {
     vmm_init_map_page(page_dir,
-		      vaddr + (i << PAGE_SHIFT),
-		      ppf + (i << PAGE_SHIFT),
+		      (char *)vaddr + (i << PAGE_SHIFT),
+		      (char *)ppf + (i << PAGE_SHIFT),
 		      flags);
   }
 
@@ -759,7 +759,7 @@ vmm_set_kernel_pgdir(void)
 
 
 pde_t *
-vmm_create_kernel_pgdir()
+vmm_create_kernel_pgdir(void)
 {
   // Allocate the initial page directory
   init_page_count = 0;
@@ -887,7 +887,7 @@ vmm_xen_map_pt(pte_t * pgtab, void * vaddr)
 }
 
 pde_t *
-vmm_xen_create_kernel_pgdir()
+vmm_xen_create_kernel_pgdir(void)
 {
  
   // Allocate the initial page directory
@@ -1014,7 +1014,7 @@ vmm_xen_page_init()
 } 
 
 int
-vmm_xen_map_shared()
+vmm_xen_map_shared(void)
 {
   /* Allocate some arbitrary 
    * page, this page will be used

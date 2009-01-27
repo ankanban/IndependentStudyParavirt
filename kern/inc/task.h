@@ -68,7 +68,7 @@ HASH_NEW(task_map_t,
 	 TASK_MAP_SIZE);
 
 task_t *
-task_alloc();
+task_alloc(void);
 
 void
 task_free(task_t * task);

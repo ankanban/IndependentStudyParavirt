@@ -59,7 +59,7 @@ keyboard_init()
  * @brief Add a scancode into the circular buffer,
  * incrementing the end of buffer.
  */
-static inline void
+inline void
 keyb_add_scancode(char sc)
 {
   if (SCANCODE_BUFFER_ISFULL) {
@@ -74,8 +74,8 @@ keyb_add_scancode(char sc)
  * @brief Remove a scancode from the circular buffer.
  * @returns Scancode 
  */
-static inline int
-keyb_remove_scancode()
+inline int
+keyb_remove_scancode(void)
 {
   if (SCANCODE_BUFFER_ISEMPTY) {
     return -1;
@@ -125,6 +125,9 @@ readchar(void)
     return -1;
   }
 
+  return sc;
+
+#if 0
   /* feed the process_scancode state machine */
   kh_type augch = process_scancode(sc);
 
@@ -143,5 +146,7 @@ readchar(void)
   /* Skip over release events */
   kdinfo("Release event?");
   return -1;
+
+#endif
 }
 

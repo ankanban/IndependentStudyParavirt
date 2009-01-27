@@ -23,7 +23,7 @@
 #ifndef _ASSERT_H_
 #define _ASSERT_H_
 
-extern void panic(const char *format, ...);
+void panic(const char *format, ...);
 
 #define assert(expression)  \
 	((void)((expression) ? 0 : (panic("%s:%u: failed assertion `%s'", \

@@ -48,8 +48,7 @@ static int mti=N+1; /* mti==N+1 means mt[N] is not initialized */
 
 /* initializing the array with a NONZERO seed */
 void
-sgenrand(seed)
-unsigned long seed;	
+sgenrand(unsigned long seed)
 {
     /* setting initial seeds to mt[N] using         */
     /* the generator Line 25 of Table 1 in          */
@@ -61,7 +60,7 @@ unsigned long seed;
 }
 
 unsigned long 
-genrand()
+genrand(void)
 {
     unsigned long y;
     static unsigned long mag01[2]={0x0, MATRIX_A};

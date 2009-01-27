@@ -39,7 +39,7 @@
 #define CONS_IS_VALID_COLOR(c) (((c) & (~0UL << 8)) == 0)
 
 void
-console_init();
+console_init(void);
 
 void 
 test_console(void);

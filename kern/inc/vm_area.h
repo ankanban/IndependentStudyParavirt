@@ -129,9 +129,6 @@ void
 vm_area_get(vm_area_t * vma);
 
 void
-vm_area_free(vm_area_t * vma);
-
-void
 vm_area_put(vm_area_t * vma);
 
 

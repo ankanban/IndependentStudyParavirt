@@ -9,12 +9,12 @@
 /** @brief Prints a string to the simics console */
 void SIM_puts(char *arg);
 /** @brief Breakpoint */
-void SIM_break();
+void SIM_break(void);
 /** @brief Halt the simulation */
-void SIM_halt();
+void SIM_halt(void);
 
 /** @brief Beep under simics. */
-void SIM_beep();
+void SIM_beep(void);
 
 /** @brief Register a user process with the CS410 simics debugging code */
 void SIM_register_user_proc( void *cr3, char *fname );
