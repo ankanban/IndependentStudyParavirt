@@ -8,7 +8,7 @@
  *  @author Fred Hacker (fhacker)
  *  @bug No known bugs.
  */
-#define FORCE_DEBUG
+//#define FORCE_DEBUG
 #define DEBUG_LEVEL KDBG_INFO
 #include <common_kern.h>
 

@@ -7,7 +7,7 @@
  */
 
 //#include <p1kern.h>
-#define FORCE_DEBUG
+//#define FORCE_DEBUG
 #define DEBUG_LEVEL KDBG_INFO
 #include <simics.h>
 #include <stdio.h>

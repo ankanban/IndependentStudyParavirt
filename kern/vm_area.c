@@ -5,7 +5,7 @@
  *  @author Anshuman P.Kanetkar (apk)
  * 
  */
-/*#define FORCE_DEBUG*/
+//#define FORCE_DEBUG
 #define DEBUG_LEVEL KDBG_INFO
 
 #include <task.h>
@@ -394,6 +394,7 @@ vm_area_unmap(vm_area_t * vma)
 	  num_pages);
 
   uint32_t mapping = 0;
+
   for (i = 0; i < num_pages; i++) {
     vpf = start_vpf + (i << PAGE_SHIFT);
 
@@ -412,9 +413,7 @@ vm_area_unmap(vm_area_t * vma)
        * using vmm_ppfs_highmem_free
        */
       if (vma->type != VMA_TYPE_KERNEL_STACK) {
-	vmm_ppf_free(VMM_P2V(page));
-	
-      
+	    
 	/* Update the page map 
 	 * This should not fail, since
 	 * we are releasing a page for which
@@ -423,13 +422,18 @@ vm_area_unmap(vm_area_t * vma)
 	rc = vmm_map_page(task->page_dir,
 			  vpf,
 			  NULL,
-			  /* vma->flags & */(~PG_FLAG_PRESENT) );
+			  0 );
 	assert(rc == 0);
+	
+	/* Can't delay queue flush, because we have to
+	 * free the page here */
+	vmm_flush_mmu_update_queue();
+
+	vmm_ppf_free(VMM_P2V(page));
       }
     }
   }
 
-  vmm_flush_mmu_update_queue();
 
 }
 

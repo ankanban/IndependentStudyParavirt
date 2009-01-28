@@ -11,9 +11,12 @@
 #include <xen_events.h>
 #include <xen_time.h>
 #include <sched.h>
+#include <kernel_timer.h>
 #include <kdebug.h>
 
 extern shared_info_t * xen_shared_info;
+
+int numTicks;
 
 /************************************************************************
  * Time functions
@@ -191,6 +194,8 @@ static void timer_handler(evtchn_port_t ev, struct pt_regs *regs, void *ign)
     get_time_values_from_xen();
     update_wallclock();
 
+	kernel_tick(++numTicks);
+
 	/* Reenable event delivery */
 	clear_evtchn(ev);
 	__sti();
@@ -203,6 +208,7 @@ static void timer_handler(evtchn_port_t ev, struct pt_regs *regs, void *ign)
 
 void xen_init_time(void)
 {
+	numTicks = 0;
     printk("Initialising timer interface\n");
     bind_virq(VIRQ_TIMER, &timer_handler, NULL);
 }

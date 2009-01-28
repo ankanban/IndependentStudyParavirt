@@ -5,7 +5,7 @@
  *  @author Anshuman P.Kanetkar (apk)
  * 
  */
-/*#define FORCE_DEBUG*/
+//#define FORCE_DEBUG
 #define DEBUG_LEVEL KDBG_INFO
 
 #include <stdint.h>
@@ -327,7 +327,7 @@ void
 vmm_free_pgdir(pde_t * pgdir)
 {
   int i = 0;
-
+#if 0
   /* Zero out the low mem kernel text map */
   for (i = 0; i < num_kernel_text_pdes; i++) {
     pde_t * pde_ktext = VMM_GET_PDE(pgdir, 
@@ -343,14 +343,75 @@ vmm_free_pgdir(pde_t * pgdir)
     
     pde_kvirt->value = 0;
   }
+#endif
+
+  uint32_t user_mem_start = USER_MEM_START;
+
+  uint32_t user_mem_end = (VMM_KERNEL_BASE - 1) & PAGE_MASK;
+
+  
+  i = user_mem_start >> PDE_ENTRY_SHIFT;
+  int pde_limit = user_mem_end >> PDE_ENTRY_SHIFT;
+
+  for (; i <= pde_limit; i++) {
+    void * pgtab_ma  = (void *)(pgdir[i].value & PAGE_MASK);
+
+    if (pgtab_ma == NULL) {
+      continue;
+    }
+
+    void * pgtab_pa = mach_to_phys(pgtab_ma);
     
-  for (; i < PGDIR_SIZE; i++) {
-    void * pgtab  = (void *)(pgdir[i].value & PAGE_MASK);
-    if (pgtab != NULL) {
-      kdinfo("Freeing page table %p", pgtab);
-      vmm_ppf_free(VMM_P2V(pgtab));
+    void * pgtab_va = VMM_P2V(pgtab_pa);
+    
+    void *pde_pa = VMM_V2P(&pgdir[i]);
+    
+    void * pde_ma = phys_to_mach(pde_pa);
+
+    /* First remove the page table entry from the page directory */
+    vmm_queue_mmu_update((uint32_t)pde_ma | 
+			 MMU_NORMAL_PT_UPDATE,
+			 0);
+
+    pte_t * pgtab_pte_ma = VMM_GET_PTE(pgdir,
+				       pgtab_va);
+
+
+    uint32_t pgtab_pte_val = (uint32_t)pgtab_ma | PGTAB_ATTRIB_SU_RW;
+
+    /* Now mark the page table page as writable */
+    vmm_queue_mmu_update((uint32_t)pgtab_pte_ma |
+			 MMU_NORMAL_PT_UPDATE,
+			 pgtab_pte_val);
+
+    vmm_flush_mmu_update_queue();
+
+    /* Now release the page back to the free pool */
+    if (pgtab_va != NULL) {
+      kdinfo("Freeing page table %p", pgtab_va);
+      vmm_ppf_free(pgtab_va);
     }
   }
+
+  void * pgdir_pa = VMM_V2P(pgdir);
+
+  void * pgdir_ma = phys_to_mach(pgdir_pa);
+
+  /* Now mark the page directory page as writable */
+  pte_t * pgdir_pte_ma = VMM_GET_PTE(pgdir,
+				     pgdir);
+    
+  uint32_t pgdir_pte_val = (uint32_t)pgdir_ma | PGTAB_ATTRIB_SU_RW;
+  
+  /* Now mark the page table page as writable */
+  vmm_queue_mmu_update((uint32_t)pgdir_pte_ma |
+		       MMU_NORMAL_PT_UPDATE,
+		       pgdir_pte_val);
+
+  vmm_flush_mmu_update_queue();
+
+  /* Release the page back to the free pool */
+
   kdinfo("Freeing page dir: %p", pgdir);
   vmm_ppf_free(pgdir);
 }

@@ -1,4 +1,4 @@
-
+//#define FORCE_DEBUG
 #define DEBUG_LEVEL KDBG_INFO
 
 #include <handler_install.h>
@@ -18,6 +18,7 @@
 extern shared_info_t * xen_shared_info;
 
 #define NUM_HANDLERS 20
+
 static void (*exception_wrappers[])(void) = {
   div_exception_wrapper, //0
   dbg_exception_wrapper, //1
@@ -42,6 +43,8 @@ static void (*exception_wrappers[])(void) = {
 };
 
 char emsg_segfault[] =  "Segmentation Fault";
+
+int sys_halt(void);
 
 void
 generic_exception_handler(uint32_t errflag)
